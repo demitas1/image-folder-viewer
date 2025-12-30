@@ -805,7 +805,7 @@ image-folder-viewer/               # リポジトリルート
 - [x] フロントエンド環境構築（React + TypeScript + Tailwind）
 - [x] プロファイルファイル（.ivprofile）の読み書き
 - [x] アプリ共通設定（app_config.json）の読み書き
-- [ ] 基本的なルーティング
+- [x] 基本的なルーティング
 
 ### Phase 2: プロファイル管理
 - [ ] 起動時のプロファイル選択フロー
