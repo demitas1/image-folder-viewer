@@ -803,8 +803,8 @@ image-folder-viewer/               # リポジトリルート
 ### Phase 1: 基盤構築
 - [x] Tauriプロジェクト初期化
 - [x] フロントエンド環境構築（React + TypeScript + Tailwind）
-- [ ] プロファイルファイル（.ivprofile）の読み書き
-- [ ] アプリ共通設定（app_config.json）の読み書き
+- [x] プロファイルファイル（.ivprofile）の読み書き
+- [x] アプリ共通設定（app_config.json）の読み書き
 - [ ] 基本的なルーティング
 
 ### Phase 2: プロファイル管理

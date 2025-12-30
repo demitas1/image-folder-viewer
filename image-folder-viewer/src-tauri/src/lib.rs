@@ -3,16 +3,32 @@
 mod commands;
 mod models;
 
-use commands::{create_new_profile, load_profile, save_profile};
+use commands::{
+    // プロファイル管理
+    create_new_profile,
+    load_profile,
+    save_profile,
+    // アプリ共通設定
+    add_recent_profile,
+    get_app_config,
+    remove_recent_profile,
+    save_app_config,
+};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
+            // プロファイル管理
             load_profile,
             save_profile,
             create_new_profile,
+            // アプリ共通設定
+            get_app_config,
+            save_app_config,
+            add_recent_profile,
+            remove_recent_profile,
         ])
         .run(tauri::generate_context!())
         .expect("Tauriアプリケーションの実行中にエラーが発生しました");
