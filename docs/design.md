@@ -117,10 +117,12 @@
 |------|-----------|
 | UIスタイリング | Tailwind CSS |
 | ルーティング | React Router v6 |
-| 状態管理 | Zustand |
+| 状態管理 | Zustand（セレクターには `useShallow` を使用） |
 | ドラッグ&ドロップ | @dnd-kit/core, @dnd-kit/sortable |
 | アイコン | Lucide React |
 | 画像表示 | react-zoom-pan-pinch |
+
+**Zustand 使用時の注意**: 配列やオブジェクトを返すセレクターは `useShallow` でラップしたカスタムフックとして定義する。直接セレクター関数を渡すと無限ループが発生する可能性がある。
 
 ### 3.3 バックエンド（Rust）
 | 用途 | クレート |
@@ -128,6 +130,7 @@
 | 画像処理 | image |
 | 非同期処理 | tokio |
 | シリアライズ | serde, serde_json |
+| ダイアログ | tauri-plugin-dialog |
 | データベース | rusqlite または tauri-plugin-sql |
 | クリップボード | arboard |
 | ファイル監視 | notify（任意） |
@@ -800,19 +803,19 @@ image-folder-viewer/               # リポジトリルート
 
 ## 9. 開発フェーズ
 
-### Phase 1: 基盤構築
+### Phase 1: 基盤構築 ✅ 完了
 - [x] Tauriプロジェクト初期化
 - [x] フロントエンド環境構築（React + TypeScript + Tailwind）
 - [x] プロファイルファイル（.ivprofile）の読み書き
 - [x] アプリ共通設定（app_config.json）の読み書き
 - [x] 基本的なルーティング
 
-### Phase 2: プロファイル管理
-- [ ] 起動時のプロファイル選択フロー
-- [ ] 最近使用したプロファイル履歴
-- [ ] 新規プロファイル作成
-- [ ] プロファイル切り替え（IndexPageヘッダー）
-- [ ] 別名保存
+### Phase 2: プロファイル管理 ✅ 完了
+- [x] 起動時のプロファイル選択フロー
+- [x] 最近使用したプロファイル履歴
+- [x] 新規プロファイル作成
+- [x] プロファイル切り替え（IndexPageヘッダー）
+- [x] 別名保存
 
 ### Phase 3: インデックスページ
 - [ ] カードの追加・削除・編集

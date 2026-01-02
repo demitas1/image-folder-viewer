@@ -62,3 +62,23 @@ export async function addRecentProfile(path: string): Promise<void> {
 export async function removeRecentProfile(path: string): Promise<void> {
   return invoke("remove_recent_profile", { path });
 }
+
+// ========================================
+// ダイアログ
+// ========================================
+
+/**
+ * プロファイルファイル選択ダイアログを開く
+ * @returns 選択されたファイルパス、キャンセル時はnull
+ */
+export async function selectProfileFile(): Promise<string | null> {
+  return invoke<string | null>("select_profile_file");
+}
+
+/**
+ * プロファイルファイル保存ダイアログを開く
+ * @returns 選択されたファイルパス、キャンセル時はnull
+ */
+export async function selectProfileSavePath(): Promise<string | null> {
+  return invoke<string | null>("select_profile_save_path");
+}
