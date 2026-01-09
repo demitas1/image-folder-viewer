@@ -14,8 +14,14 @@ use commands::{
     remove_recent_profile,
     save_app_config,
     // ダイアログ
+    select_folder,
+    select_image_file,
     select_profile_file,
     select_profile_save_path,
+    // 画像
+    get_first_image_in_folder,
+    get_thumbnail,
+    validate_folder_path,
 };
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -34,8 +40,14 @@ pub fn run() {
             add_recent_profile,
             remove_recent_profile,
             // ダイアログ
+            select_folder,
+            select_image_file,
             select_profile_file,
             select_profile_save_path,
+            // 画像
+            get_thumbnail,
+            get_first_image_in_folder,
+            validate_folder_path,
         ])
         .run(tauri::generate_context!())
         .expect("Tauriアプリケーションの実行中にエラーが発生しました");

@@ -824,6 +824,81 @@ image-folder-viewer/               # リポジトリルート
 - [ ] サムネイル画像選択（OSファイルダイアログ使用）
 - [ ] エラー状態カードの表示・編集
 
+#### Phase 3 実装ステップ
+
+**Step 1: Rustバックエンド - ダイアログ・画像コマンド追加**
+| ファイル | 変更内容 |
+|---------|---------|
+| `src-tauri/Cargo.toml` | `image`, `base64` クレート追加 |
+| `src-tauri/src/commands/dialog.rs` | `select_folder`, `select_image_file` 追加 |
+| `src-tauri/src/commands/images.rs` | 新規: `get_thumbnail`, `get_first_image_in_folder`, `validate_folder_path` |
+| `src-tauri/src/commands/mod.rs` | images モジュール追加 |
+| `src-tauri/src/lib.rs` | 新規コマンド登録 |
+
+**Step 2: フロントエンドAPI層の拡張**
+| ファイル | 変更内容 |
+|---------|---------|
+| `src/api/tauri.ts` | `selectFolder`, `selectImageFile`, `getThumbnail`, `getFirstImageInFolder`, `validateFolderPath` 追加 |
+
+**Step 3: Zustandストア - カード操作メソッド追加**
+| ファイル | 変更内容 |
+|---------|---------|
+| `src/store/profileStore.ts` | `addCard`, `updateCard`, `deleteCard`, `reorderCards` メソッド追加、`useCards()` カスタムフック追加 |
+
+**Step 4: 共通コンポーネント - モーダル**
+| ファイル | 変更内容 |
+|---------|---------|
+| `src/components/common/Modal.tsx` | 新規: 汎用モーダルコンポーネント |
+
+**Step 5: カードコンポーネント群**
+| ファイル | 変更内容 |
+|---------|---------|
+| `src/components/cards/CardItem.tsx` | 新規: カード表示（サムネイル、タイトル、エラー状態） |
+| `src/components/cards/CardAddModal.tsx` | 新規: カード追加モーダル |
+| `src/components/cards/CardEditModal.tsx` | 新規: カード編集モーダル |
+| `src/components/cards/CardGrid.tsx` | 新規: グリッドレイアウト |
+
+**Step 6: @dnd-kit によるドラッグ&ドロップ実装**
+| ファイル | 変更内容 |
+|---------|---------|
+| `package.json` | `@dnd-kit/core`, `@dnd-kit/sortable` 追加 |
+| `src/components/cards/CardGrid.tsx` | DndContext, SortableContext 統合 |
+| `src/components/cards/CardItem.tsx` | useSortable フック使用 |
+
+**Step 7: IndexPage の統合**
+| ファイル | 変更内容 |
+|---------|---------|
+| `src/pages/IndexPage.tsx` | 全コンポーネント統合、キーボードショートカット追加（Ctrl+N, Delete, 矢印キー, Enter） |
+
+**Step 8: エラー状態カードの表示・編集**
+| ファイル | 変更内容 |
+|---------|---------|
+| `src/components/cards/CardItem.tsx` | エラー状態スタイル（赤枠、アイコン） |
+| `src/components/cards/CardEditModal.tsx` | フォルダパス変更機能 |
+
+#### Phase 3 新規ファイル一覧
+
+```
+src/components/
+├── common/
+│   └── Modal.tsx
+└── cards/
+    ├── CardGrid.tsx
+    ├── CardItem.tsx
+    ├── CardAddModal.tsx
+    └── CardEditModal.tsx
+
+src-tauri/src/commands/
+└── images.rs
+```
+
+#### Phase 3 実装時の注意事項
+
+1. **Zustand useShallow**: 配列を返すセレクターは必ず `useShallow` でラップ
+2. **サムネイル**: image クレートでリサイズ → Base64 DataURL で返却
+3. **@dnd-kit**: `rectSortingStrategy` でグリッド対応、`arrayMove` で並べ替え
+4. **エラー状態**: `isValid === false` のカードは赤枠表示、クリック無効
+
 ### Phase 4: 画像ビューア
 - [ ] 画像表示（H-Flip対応）
 - [ ] ナビゲーション（前後移動、シャッフル）

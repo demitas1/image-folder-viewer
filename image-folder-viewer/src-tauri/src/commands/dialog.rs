@@ -34,3 +34,32 @@ pub async fn select_profile_save_path(app: tauri::AppHandle) -> Result<Option<St
         }
     }))
 }
+
+/// フォルダ選択ダイアログ（カード追加用）
+#[tauri::command]
+pub async fn select_folder(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    let folder = app.dialog().file().blocking_pick_folder();
+
+    Ok(folder.map(|f| f.to_string()))
+}
+
+/// 画像ファイル選択ダイアログ（サムネイル選択用）
+#[tauri::command]
+pub async fn select_image_file(
+    app: tauri::AppHandle,
+    initial_dir: Option<String>,
+) -> Result<Option<String>, String> {
+    let mut dialog = app
+        .dialog()
+        .file()
+        .add_filter("画像ファイル", &["jpg", "jpeg", "png", "gif", "webp", "bmp"]);
+
+    // 初期ディレクトリが指定されている場合は設定
+    if let Some(dir) = initial_dir {
+        dialog = dialog.set_directory(dir);
+    }
+
+    let file = dialog.blocking_pick_file();
+
+    Ok(file.map(|f| f.to_string()))
+}
