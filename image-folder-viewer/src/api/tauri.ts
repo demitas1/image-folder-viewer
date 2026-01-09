@@ -82,3 +82,59 @@ export async function selectProfileFile(): Promise<string | null> {
 export async function selectProfileSavePath(): Promise<string | null> {
   return invoke<string | null>("select_profile_save_path");
 }
+
+/**
+ * フォルダ選択ダイアログを開く（カード追加用）
+ * @returns 選択されたフォルダパス、キャンセル時はnull
+ */
+export async function selectFolder(): Promise<string | null> {
+  return invoke<string | null>("select_folder");
+}
+
+/**
+ * 画像ファイル選択ダイアログを開く（サムネイル選択用）
+ * @param initialDir 初期ディレクトリ（省略可能）
+ * @returns 選択されたファイルパス、キャンセル時はnull
+ */
+export async function selectImageFile(
+  initialDir?: string
+): Promise<string | null> {
+  return invoke<string | null>("select_image_file", { initialDir });
+}
+
+// ========================================
+// 画像
+// ========================================
+
+/**
+ * サムネイル画像を取得（Base64 DataURL）
+ * @param imagePath 画像ファイルパス
+ * @param size サムネイルサイズ（デフォルト: 200）
+ * @returns Base64 DataURL
+ */
+export async function getThumbnail(
+  imagePath: string,
+  size: number = 200
+): Promise<string> {
+  return invoke<string>("get_thumbnail", { imagePath, size });
+}
+
+/**
+ * フォルダ内の最初の画像ファイルパスを取得
+ * @param folderPath フォルダパス
+ * @returns 最初の画像ファイルパス、画像がない場合はnull
+ */
+export async function getFirstImageInFolder(
+  folderPath: string
+): Promise<string | null> {
+  return invoke<string | null>("get_first_image_in_folder", { folderPath });
+}
+
+/**
+ * フォルダパスが有効かどうかを検証
+ * @param path 検証するパス
+ * @returns フォルダが存在すればtrue
+ */
+export async function validateFolderPath(path: string): Promise<boolean> {
+  return invoke<boolean>("validate_folder_path", { path });
+}

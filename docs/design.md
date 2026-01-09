@@ -826,7 +826,7 @@ image-folder-viewer/               # リポジトリルート
 
 #### Phase 3 実装ステップ
 
-**Step 1: Rustバックエンド - ダイアログ・画像コマンド追加**
+**Step 1: Rustバックエンド - ダイアログ・画像コマンド追加 ✅ 完了**
 | ファイル | 変更内容 |
 |---------|---------|
 | `src-tauri/Cargo.toml` | `image`, `base64` クレート追加 |
@@ -835,7 +835,7 @@ image-folder-viewer/               # リポジトリルート
 | `src-tauri/src/commands/mod.rs` | images モジュール追加 |
 | `src-tauri/src/lib.rs` | 新規コマンド登録 |
 
-**Step 2: フロントエンドAPI層の拡張**
+**Step 2: フロントエンドAPI層の拡張 ✅ 完了**
 | ファイル | 変更内容 |
 |---------|---------|
 | `src/api/tauri.ts` | `selectFolder`, `selectImageFile`, `getThumbnail`, `getFirstImageInFolder`, `validateFolderPath` 追加 |
