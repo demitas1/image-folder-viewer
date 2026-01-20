@@ -103,9 +103,11 @@ export function IndexPage() {
     (card: Card) => {
       if (window.confirm(`「${card.title}」を削除しますか？`)) {
         deleteCard(card.id);
+        // 自動保存
+        saveCurrentProfile();
       }
     },
-    [deleteCard]
+    [deleteCard, saveCurrentProfile]
   );
 
   // カード追加
@@ -114,25 +116,31 @@ export function IndexPage() {
       const newCard = addCard(input);
       if (newCard) {
         setSelectedCardId(newCard.id);
+        // 自動保存
+        saveCurrentProfile();
       }
     },
-    [addCard]
+    [addCard, saveCurrentProfile]
   );
 
   // カード更新
   const handleUpdateCard = useCallback(
     (cardId: string, input: UpdateCardInput) => {
       updateCard(cardId, input);
+      // 自動保存
+      saveCurrentProfile();
     },
-    [updateCard]
+    [updateCard, saveCurrentProfile]
   );
 
   // カード並び替え
   const handleReorder = useCallback(
     (cardIds: string[]) => {
       reorderCards(cardIds);
+      // 自動保存
+      saveCurrentProfile();
     },
-    [reorderCards]
+    [reorderCards, saveCurrentProfile]
   );
 
   // 編集モーダルの検証情報
