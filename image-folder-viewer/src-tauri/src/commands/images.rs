@@ -27,15 +27,15 @@ pub fn get_thumbnail(image_path: String, size: u32) -> Result<String, String> {
     // アスペクト比を維持してリサイズ
     let thumbnail = img.thumbnail(size, size);
 
-    // PNGとしてエンコード
+    // JPEGとしてエンコード（品質85%、PNGより高速）
     let mut buffer = Cursor::new(Vec::new());
     thumbnail
-        .write_to(&mut buffer, image::ImageFormat::Png)
+        .write_to(&mut buffer, image::ImageFormat::Jpeg)
         .map_err(|e| format!("サムネイルのエンコードに失敗しました: {}", e))?;
 
     // Base64エンコードしてDataURLとして返す
     let base64_str = STANDARD.encode(buffer.into_inner());
-    Ok(format!("data:image/png;base64,{}", base64_str))
+    Ok(format!("data:image/jpeg;base64,{}", base64_str))
 }
 
 /// フォルダ内の最初の画像ファイルパスを取得
