@@ -1070,12 +1070,12 @@ useEffect(() => {
 
 ### C.3 改善策
 
-#### 改善1: JPEG出力に変更（優先度: 高、難易度: 低）
+#### 改善1: JPEG出力に変更（優先度: 高、難易度: 低）✅ 実装済み
 
 PNGからJPEGに変更することで、エンコード速度が約5-10倍向上する。
 
 ```rust
-// 改善後
+// 実装済み（src-tauri/src/commands/images.rs）
 thumbnail.write_to(&mut buffer, image::ImageFormat::Jpeg)
 ```
 
@@ -1086,39 +1086,35 @@ thumbnail.write_to(&mut buffer, image::ImageFormat::Jpeg)
 | ファイルサイズ | 大きい | 小さい |
 | 画質 | 完全 | 十分（サムネイル用途） |
 
-#### 改善2: Rust側メモリキャッシュ（優先度: 高、難易度: 中）
+#### 改善2: Rust側メモリキャッシュ（優先度: 高、難易度: 中）✅ 実装済み
 
 同じ画像パス・サイズの組み合わせに対して、生成済みサムネイルをメモリにキャッシュする。
 
 ```rust
+// 実装済み（src-tauri/src/commands/images.rs）
 use std::collections::HashMap;
 use std::sync::Mutex;
 use once_cell::sync::Lazy;
 
-// グローバルキャッシュ
-static THUMBNAIL_CACHE: Lazy<Mutex<HashMap<(String, u32), String>>> =
-    Lazy::new(|| Mutex::new(HashMap::new()));
+const MAX_CACHE_ENTRIES: usize = 200;
 
-#[tauri::command]
-pub fn get_thumbnail(image_path: String, size: u32) -> Result<String, String> {
-    let cache_key = (image_path.clone(), size);
+static THUMBNAIL_CACHE: Lazy<Mutex<ThumbnailCache>> =
+    Lazy::new(|| Mutex::new(ThumbnailCache::new(MAX_CACHE_ENTRIES)));
 
-    // キャッシュ確認
-    if let Some(cached) = THUMBNAIL_CACHE.lock().unwrap().get(&cache_key) {
-        return Ok(cached.clone());
-    }
-
-    // サムネイル生成...
-
-    // キャッシュに保存
-    THUMBNAIL_CACHE.lock().unwrap().insert(cache_key, result.clone());
-    Ok(result)
+// LRU風キャッシュ（最大200エントリ、古いものから削除）
+struct ThumbnailCache {
+    map: HashMap<(String, u32), String>,
+    order: Vec<(String, u32)>,
+    max_size: usize,
 }
 ```
 
-**注意事項**:
-- メモリ使用量の上限管理が必要（LRUキャッシュ等）
-- ファイル更新時のキャッシュ無効化が必要
+**実装済みの機能**:
+- 最大200エントリのLRU風キャッシュ
+- キャッシュヒット時は即座に返却（画像処理をスキップ）
+
+**未実装（将来検討）**:
+- ファイル更新時のキャッシュ無効化
 
 #### 改善3: フロントエンドキャッシュ（優先度: 中、難易度: 中）
 
@@ -1176,26 +1172,26 @@ class ThumbnailQueue {
 }
 ```
 
-### C.4 実装優先順位
+### C.4 実装状況
 
-| 順位 | 改善策 | 期待効果 | 工数 |
-|------|--------|----------|------|
-| 1 | JPEG出力に変更 | エンコード5-10倍高速化 | 小 |
-| 2 | Rust側メモリキャッシュ | 同一画像の再処理防止 | 中 |
-| 3 | フロントエンドキャッシュ | 再レンダリング時の再取得防止 | 中 |
-| 4 | ディスクキャッシュ | アプリ再起動後も高速 | 大 |
-| 5 | 並列処理の制御 | 大量カード時の安定性向上 | 中 |
+| 順位 | 改善策 | 期待効果 | 工数 | 状態 |
+|------|--------|----------|------|------|
+| 1 | JPEG出力に変更 | エンコード5-10倍高速化 | 小 | ✅ 実装済み |
+| 2 | Rust側メモリキャッシュ | 同一画像の再処理防止 | 中 | ✅ 実装済み |
+| 3 | フロントエンドキャッシュ | 再レンダリング時の再取得防止 | 中 | 未実装 |
+| 4 | ディスクキャッシュ | アプリ再起動後も高速 | 大 | 未実装 |
+| 5 | 並列処理の制御 | 大量カード時の安定性向上 | 中 | 未実装 |
 
 ### C.5 実装ステップ案
 
-**Step 1: 即効性のある改善**
-- JPEG出力に変更
-- Rust側メモリキャッシュ（シンプルなHashMap）
+**Step 1: 即効性のある改善** ✅ 完了
+- [x] JPEG出力に変更
+- [x] Rust側メモリキャッシュ（LRU風、最大200エントリ）
 
-**Step 2: フロントエンド改善**
-- フロントエンドキャッシュの実装
-- ローディング状態の最適化
+**Step 2: フロントエンド改善**（未実装・必要に応じて実施）
+- [ ] フロントエンドキャッシュの実装
+- [ ] ローディング状態の最適化
 
-**Step 3: 永続化（Phase 5で実施）**
-- ディスクキャッシュの実装
-- キャッシュ管理機能（サイズ上限、有効期限）
+**Step 3: 永続化**（未実装・Phase 5で検討）
+- [ ] ディスクキャッシュの実装
+- [ ] キャッシュ管理機能（サイズ上限、有効期限）
