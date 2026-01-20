@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
-import type { ProfileData, AppConfig, RecentProfile } from "../types";
+import type { ProfileData, AppConfig, RecentProfile, Card } from "../types";
 import {
   loadProfile,
   saveProfile,
@@ -16,6 +16,21 @@ import {
 
 // 空配列の定数（参照の安定性のため）
 const EMPTY_RECENT_PROFILES: RecentProfile[] = [];
+const EMPTY_CARDS: Card[] = [];
+
+// カード追加時の入力データ
+interface AddCardInput {
+  folderPath: string;
+  title: string;
+  thumbnail: string | null;
+}
+
+// カード更新時の入力データ（部分更新）
+interface UpdateCardInput {
+  title?: string;
+  folderPath?: string;
+  thumbnail?: string | null;
+}
 
 interface ProfileState {
   // 現在のプロファイル
@@ -44,6 +59,12 @@ interface ProfileActions {
   saveCurrentProfile: () => Promise<void>;
   saveProfileAs: () => Promise<boolean>;
   closeProfile: () => void;
+
+  // カード操作
+  addCard: (input: AddCardInput) => Card | null;
+  updateCard: (cardId: string, input: UpdateCardInput) => Card | null;
+  deleteCard: (cardId: string) => boolean;
+  reorderCards: (cardIds: string[]) => void;
 
   // 履歴操作
   removeFromHistory: (path: string) => Promise<void>;
@@ -204,6 +225,148 @@ export const useProfileStore = create<ProfileState & ProfileActions>(
       });
     },
 
+    // カードを追加
+    addCard: (input: AddCardInput) => {
+      const { currentProfile } = get();
+      if (!currentProfile) {
+        set({ error: "プロファイルが開かれていません" });
+        return null;
+      }
+
+      const now = new Date().toISOString();
+      const maxSortOrder = currentProfile.cards.reduce(
+        (max, card) => Math.max(max, card.sortOrder),
+        -1
+      );
+
+      const newCard: Card = {
+        id: crypto.randomUUID(),
+        title: input.title,
+        folderPath: input.folderPath,
+        thumbnail: input.thumbnail,
+        sortOrder: maxSortOrder + 1,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      set({
+        currentProfile: {
+          ...currentProfile,
+          cards: [...currentProfile.cards, newCard],
+          updatedAt: now,
+        },
+      });
+
+      return newCard;
+    },
+
+    // カードを更新
+    updateCard: (cardId: string, input: UpdateCardInput) => {
+      const { currentProfile } = get();
+      if (!currentProfile) {
+        set({ error: "プロファイルが開かれていません" });
+        return null;
+      }
+
+      const cardIndex = currentProfile.cards.findIndex((c) => c.id === cardId);
+      if (cardIndex === -1) {
+        set({ error: "指定されたカードが見つかりません" });
+        return null;
+      }
+
+      const now = new Date().toISOString();
+      const updatedCard: Card = {
+        ...currentProfile.cards[cardIndex],
+        ...input,
+        updatedAt: now,
+      };
+
+      const newCards = [...currentProfile.cards];
+      newCards[cardIndex] = updatedCard;
+
+      set({
+        currentProfile: {
+          ...currentProfile,
+          cards: newCards,
+          updatedAt: now,
+        },
+      });
+
+      return updatedCard;
+    },
+
+    // カードを削除
+    deleteCard: (cardId: string) => {
+      const { currentProfile } = get();
+      if (!currentProfile) {
+        set({ error: "プロファイルが開かれていません" });
+        return false;
+      }
+
+      const cardExists = currentProfile.cards.some((c) => c.id === cardId);
+      if (!cardExists) {
+        set({ error: "指定されたカードが見つかりません" });
+        return false;
+      }
+
+      const now = new Date().toISOString();
+      const newCards = currentProfile.cards.filter((c) => c.id !== cardId);
+
+      // cardTagsからも関連を削除
+      const newCardTags = currentProfile.cardTags.filter(
+        (ct) => ct.cardId !== cardId
+      );
+
+      set({
+        currentProfile: {
+          ...currentProfile,
+          cards: newCards,
+          cardTags: newCardTags,
+          updatedAt: now,
+        },
+      });
+
+      return true;
+    },
+
+    // カードの順序を変更
+    reorderCards: (cardIds: string[]) => {
+      const { currentProfile } = get();
+      if (!currentProfile) {
+        set({ error: "プロファイルが開かれていません" });
+        return;
+      }
+
+      const now = new Date().toISOString();
+
+      // cardIdsの順序に基づいてsortOrderを更新
+      const cardMap = new Map(currentProfile.cards.map((c) => [c.id, c]));
+      const reorderedCards = cardIds
+        .map((id, index) => {
+          const card = cardMap.get(id);
+          if (!card) return null;
+          return { ...card, sortOrder: index, updatedAt: now };
+        })
+        .filter((c): c is Card => c !== null);
+
+      // cardIdsに含まれないカード（あれば）を末尾に追加
+      const remainingCards = currentProfile.cards
+        .filter((c) => !cardIds.includes(c.id))
+        .map((c, index) => ({
+          ...c,
+          sortOrder: reorderedCards.length + index,
+          updatedAt: now,
+        }));
+
+      set({
+        currentProfile: {
+          ...currentProfile,
+          cards: [...reorderedCards, ...remainingCards],
+          updatedAt: now,
+        },
+      });
+    },
+
     // 履歴から削除
     removeFromHistory: async (path: string) => {
       try {
@@ -238,3 +401,29 @@ export const useCurrentProfileName = (): string => {
     return filename.replace(".ivprofile", "");
   });
 };
+
+// カスタムフック: カード一覧（sortOrder順にソート済み）
+export const useCards = (): Card[] => {
+  return useProfileStore(
+    useShallow((state) => {
+      const cards = state.currentProfile?.cards ?? EMPTY_CARDS;
+      // sortOrder順にソートして返す
+      return [...cards].sort((a, b) => a.sortOrder - b.sortOrder);
+    })
+  );
+};
+
+// カスタムフック: カード操作アクション
+export const useCardActions = () => {
+  return useProfileStore(
+    useShallow((state) => ({
+      addCard: state.addCard,
+      updateCard: state.updateCard,
+      deleteCard: state.deleteCard,
+      reorderCards: state.reorderCards,
+    }))
+  );
+};
+
+// 型のエクスポート
+export type { AddCardInput, UpdateCardInput };
