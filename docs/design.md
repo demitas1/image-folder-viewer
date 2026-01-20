@@ -1024,3 +1024,178 @@ src-tauri/src/commands/
 
 ※ 「Open」は表示されない（開けないため）
 ```
+
+---
+
+## 付録C: サムネイルパフォーマンス分析
+
+### C.1 現状の問題
+
+Phase 3実装後の動作確認において、以下のパフォーマンス問題が確認された：
+
+- IndexPage表示時のサムネイル読み込みが遅い
+- カード追加モーダルでのサムネイルプレビュー表示が遅い
+- カードが増えるほど初期表示が遅くなる
+
+### C.2 原因分析
+
+#### Rust側（`src-tauri/src/commands/images.rs`）
+
+| 問題 | 詳細 | 影響度 |
+|------|------|--------|
+| **キャッシュなし** | `get_thumbnail`は毎回画像をフルデコード・リサイズしている | 高 |
+| **PNGエンコード** | サムネイル出力にPNG形式を使用。PNGはロスレス圧縮のためエンコードが遅い | 高 |
+| **同期処理** | コマンドが同期実行のため、重い処理がメインスレッドをブロック | 中 |
+
+```rust
+// 現在の実装（問題箇所）
+let thumbnail = img.thumbnail(size, size);
+thumbnail.write_to(&mut buffer, image::ImageFormat::Png)  // PNGは遅い
+```
+
+#### フロントエンド側（`src/components/cards/CardItem.tsx`）
+
+| 問題 | 詳細 | 影響度 |
+|------|------|--------|
+| **個別取得** | 各CardItemコンポーネントがuseEffect内で個別にサムネイルをリクエスト | 中 |
+| **キャッシュなし** | コンポーネント再マウント時に毎回Rust側へリクエスト | 高 |
+| **同時リクエスト** | カードが多い場合、大量の同時リクエストが発生 | 中 |
+
+```typescript
+// 現在の実装（各カードが個別に取得）
+useEffect(() => {
+  getThumbnail(card.thumbnail, THUMBNAIL_SIZE).then(...)
+}, [card.thumbnail, isValid]);
+```
+
+### C.3 改善策
+
+#### 改善1: JPEG出力に変更（優先度: 高、難易度: 低）
+
+PNGからJPEGに変更することで、エンコード速度が約5-10倍向上する。
+
+```rust
+// 改善後
+thumbnail.write_to(&mut buffer, image::ImageFormat::Jpeg)
+```
+
+| 項目 | PNG | JPEG |
+|------|-----|------|
+| 圧縮方式 | ロスレス | 非可逆 |
+| エンコード速度 | 遅い | 速い |
+| ファイルサイズ | 大きい | 小さい |
+| 画質 | 完全 | 十分（サムネイル用途） |
+
+#### 改善2: Rust側メモリキャッシュ（優先度: 高、難易度: 中）
+
+同じ画像パス・サイズの組み合わせに対して、生成済みサムネイルをメモリにキャッシュする。
+
+```rust
+use std::collections::HashMap;
+use std::sync::Mutex;
+use once_cell::sync::Lazy;
+
+// グローバルキャッシュ
+static THUMBNAIL_CACHE: Lazy<Mutex<HashMap<(String, u32), String>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
+
+#[tauri::command]
+pub fn get_thumbnail(image_path: String, size: u32) -> Result<String, String> {
+    let cache_key = (image_path.clone(), size);
+
+    // キャッシュ確認
+    if let Some(cached) = THUMBNAIL_CACHE.lock().unwrap().get(&cache_key) {
+        return Ok(cached.clone());
+    }
+
+    // サムネイル生成...
+
+    // キャッシュに保存
+    THUMBNAIL_CACHE.lock().unwrap().insert(cache_key, result.clone());
+    Ok(result)
+}
+```
+
+**注意事項**:
+- メモリ使用量の上限管理が必要（LRUキャッシュ等）
+- ファイル更新時のキャッシュ無効化が必要
+
+#### 改善3: フロントエンドキャッシュ（優先度: 中、難易度: 中）
+
+サムネイルURLをグローバルなMapで管理し、再取得を防止する。
+
+```typescript
+// thumbnailCache.ts
+const cache = new Map<string, string>();
+
+export async function getCachedThumbnail(
+  imagePath: string,
+  size: number
+): Promise<string | null> {
+  const key = `${imagePath}:${size}`;
+
+  if (cache.has(key)) {
+    return cache.get(key)!;
+  }
+
+  const url = await getThumbnail(imagePath, size);
+  cache.set(key, url);
+  return url;
+}
+```
+
+#### 改善4: ディスクキャッシュ（優先度: 低、難易度: 高）
+
+アプリデータディレクトリにサムネイルファイルを保存し、アプリ再起動後も高速に読み込む。
+
+```
+<app_data>/thumbnails/
+├── <hash1>.jpg
+├── <hash2>.jpg
+└── ...
+```
+
+- ファイル名はパス+サイズのハッシュ値
+- 元画像の更新日時でキャッシュ有効性を判定
+- 定期的な古いキャッシュの削除が必要
+
+#### 改善5: 並列処理の制御（優先度: 低、難易度: 中）
+
+同時リクエスト数を制限し、システムリソースの過負荷を防止する。
+
+```typescript
+// 同時実行数を制限するキュー
+class ThumbnailQueue {
+  private queue: Array<() => Promise<void>> = [];
+  private running = 0;
+  private maxConcurrent = 4;
+
+  async add<T>(task: () => Promise<T>): Promise<T> {
+    // キュー管理ロジック...
+  }
+}
+```
+
+### C.4 実装優先順位
+
+| 順位 | 改善策 | 期待効果 | 工数 |
+|------|--------|----------|------|
+| 1 | JPEG出力に変更 | エンコード5-10倍高速化 | 小 |
+| 2 | Rust側メモリキャッシュ | 同一画像の再処理防止 | 中 |
+| 3 | フロントエンドキャッシュ | 再レンダリング時の再取得防止 | 中 |
+| 4 | ディスクキャッシュ | アプリ再起動後も高速 | 大 |
+| 5 | 並列処理の制御 | 大量カード時の安定性向上 | 中 |
+
+### C.5 実装ステップ案
+
+**Step 1: 即効性のある改善**
+- JPEG出力に変更
+- Rust側メモリキャッシュ（シンプルなHashMap）
+
+**Step 2: フロントエンド改善**
+- フロントエンドキャッシュの実装
+- ローディング状態の最適化
+
+**Step 3: 永続化（Phase 5で実施）**
+- ディスクキャッシュの実装
+- キャッシュ管理機能（サイズ上限、有効期限）
