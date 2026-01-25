@@ -925,7 +925,7 @@ src-tauri/src/commands/
 | `src/types/index.ts` | `ImageFile` 型追加（軽量版）、`ViewerState.images` を `ImageFile[]` に変更 |
 | `src/api/tauri.ts` | `getImagesInFolder`, `copyImageToClipboard`, `copyTextToClipboard` 追加 |
 
-**Step 3: Zustandストア - ビューア状態管理**
+**Step 3: Zustandストア - ビューア状態管理 ✅ 完了**
 | ファイル | 変更内容 |
 |---------|---------|
 | `src/store/viewerStore.ts` | 新規: ビューア状態管理（currentIndex, images, hFlip, shuffle等） |
@@ -934,13 +934,24 @@ src-tauri/src/commands/
 ```typescript
 interface ViewerState {
   cardId: string | null;           // 表示中のカードID
+  cardTitle: string;               // カードタイトル
+  folderPath: string | null;       // フォルダパス
   images: ImageFile[];             // フォルダ内の画像一覧（軽量版）
   currentIndex: number;            // 現在の画像インデックス
   shuffledIndices: number[] | null; // シャッフル時のインデックス配列
   hFlipEnabled: boolean;           // H-Flip有効
   shuffleEnabled: boolean;         // シャッフル有効
+  isLoading: boolean;              // 読み込み中
+  error: string | null;            // エラー
 }
 ```
+
+カスタムフック:
+- `useCurrentImage()` - 現在の画像情報
+- `useImages()` - 画像一覧
+- `useNavigationState()` - ナビゲーション状態
+- `useViewerOptions()` - 表示オプション（hFlip, shuffle）
+- `useViewerActions()` - ビューアアクション
 
 **Step 4: ViewerPage基本実装 - 画像表示・ナビゲーション**
 | ファイル | 変更内容 |
