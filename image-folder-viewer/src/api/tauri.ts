@@ -1,7 +1,7 @@
 // Tauriコマンド呼び出しラッパー
 
 import { invoke } from "@tauri-apps/api/core";
-import type { ProfileData, AppConfig } from "../types";
+import type { ProfileData, AppConfig, ImageFile } from "../types";
 
 // ========================================
 // プロファイル管理
@@ -137,4 +137,35 @@ export async function getFirstImageInFolder(
  */
 export async function validateFolderPath(path: string): Promise<boolean> {
   return invoke<boolean>("validate_folder_path", { path });
+}
+
+/**
+ * フォルダ内のすべての画像ファイルを取得（ファイル名順でソート）
+ * @param folderPath フォルダパス
+ * @returns 画像ファイル情報の配列
+ */
+export async function getImagesInFolder(
+  folderPath: string
+): Promise<ImageFile[]> {
+  return invoke<ImageFile[]>("get_images_in_folder", { folderPath });
+}
+
+// ========================================
+// クリップボード
+// ========================================
+
+/**
+ * 画像をクリップボードにコピー
+ * @param imagePath 画像ファイルパス
+ */
+export async function copyImageToClipboard(imagePath: string): Promise<void> {
+  return invoke("copy_image_to_clipboard", { imagePath });
+}
+
+/**
+ * テキストをクリップボードにコピー（パスコピー用）
+ * @param text コピーするテキスト
+ */
+export async function copyTextToClipboard(text: string): Promise<void> {
+  return invoke("copy_text_to_clipboard", { text });
 }

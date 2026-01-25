@@ -919,10 +919,10 @@ src-tauri/src/commands/
 | `src-tauri/src/commands/mod.rs` | clipboard モジュール追加 |
 | `src-tauri/src/lib.rs` | 新規コマンド登録 |
 
-**Step 2: フロントエンドAPI層・型定義の拡張**
+**Step 2: フロントエンドAPI層・型定義の拡張 ✅ 完了**
 | ファイル | 変更内容 |
 |---------|---------|
-| `src/types/index.ts` | `ImageInfo` 型が既存か確認、必要に応じて拡張 |
+| `src/types/index.ts` | `ImageFile` 型追加（軽量版）、`ViewerState.images` を `ImageFile[]` に変更 |
 | `src/api/tauri.ts` | `getImagesInFolder`, `copyImageToClipboard`, `copyTextToClipboard` 追加 |
 
 **Step 3: Zustandストア - ビューア状態管理**
@@ -934,7 +934,7 @@ src-tauri/src/commands/
 ```typescript
 interface ViewerState {
   cardId: string | null;           // 表示中のカードID
-  images: ImageInfo[];             // フォルダ内の画像一覧
+  images: ImageFile[];             // フォルダ内の画像一覧（軽量版）
   currentIndex: number;            // 現在の画像インデックス
   shuffledIndices: number[] | null; // シャッフル時のインデックス配列
   hFlipEnabled: boolean;           // H-Flip有効

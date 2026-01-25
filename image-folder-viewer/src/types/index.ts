@@ -73,7 +73,13 @@ export interface AppConfig {
   theme: "light" | "dark" | "system";
 }
 
-// 画像情報
+// 画像ファイル情報（軽量版：ビューア用）
+export interface ImageFile {
+  path: string;
+  filename: string;
+}
+
+// 画像詳細情報（将来の画像情報表示機能用）
 export interface ImageInfo {
   path: string;
   filename: string;
@@ -87,7 +93,7 @@ export interface ImageInfo {
 export interface ViewerState {
   currentCardId: string | null;
   currentIndex: number;
-  images: ImageInfo[];
+  images: ImageFile[];
   shuffledIndices: number[] | null;
   hFlipEnabled: boolean;
   shuffleEnabled: boolean;
