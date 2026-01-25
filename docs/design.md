@@ -817,12 +817,13 @@ image-folder-viewer/               # リポジトリルート
 - [x] プロファイル切り替え（IndexPageヘッダー）
 - [x] 別名保存
 
-### Phase 3: インデックスページ
-- [ ] カードの追加・削除・編集
-- [ ] サムネイルグリッド表示
-- [ ] ドラッグ&ドロップ並べ替え
-- [ ] サムネイル画像選択（OSファイルダイアログ使用）
-- [ ] エラー状態カードの表示・編集
+### Phase 3: インデックスページ ✅ 完了
+- [x] カードの追加・削除・編集
+- [x] サムネイルグリッド表示
+- [x] ドラッグ&ドロップ並べ替え
+- [x] サムネイル画像選択（OSファイルダイアログ使用）
+- [x] エラー状態カードの表示・編集
+- [x] サムネイルパフォーマンス最適化（JPEG出力、メモリキャッシュ）
 
 #### Phase 3 実装ステップ
 
@@ -840,17 +841,17 @@ image-folder-viewer/               # リポジトリルート
 |---------|---------|
 | `src/api/tauri.ts` | `selectFolder`, `selectImageFile`, `getThumbnail`, `getFirstImageInFolder`, `validateFolderPath` 追加 |
 
-**Step 3: Zustandストア - カード操作メソッド追加**
+**Step 3: Zustandストア - カード操作メソッド追加 ✅ 完了**
 | ファイル | 変更内容 |
 |---------|---------|
 | `src/store/profileStore.ts` | `addCard`, `updateCard`, `deleteCard`, `reorderCards` メソッド追加、`useCards()` カスタムフック追加 |
 
-**Step 4: 共通コンポーネント - モーダル**
+**Step 4: 共通コンポーネント - モーダル ✅ 完了**
 | ファイル | 変更内容 |
 |---------|---------|
-| `src/components/common/Modal.tsx` | 新規: 汎用モーダルコンポーネント |
+| `src/components/common/Modal.tsx` | 新規: 汎用モーダルコンポーネント、Buttonコンポーネント |
 
-**Step 5: カードコンポーネント群**
+**Step 5: カードコンポーネント群 ✅ 完了**
 | ファイル | 変更内容 |
 |---------|---------|
 | `src/components/cards/CardItem.tsx` | 新規: カード表示（サムネイル、タイトル、エラー状態） |
@@ -858,19 +859,19 @@ image-folder-viewer/               # リポジトリルート
 | `src/components/cards/CardEditModal.tsx` | 新規: カード編集モーダル |
 | `src/components/cards/CardGrid.tsx` | 新規: グリッドレイアウト |
 
-**Step 6: @dnd-kit によるドラッグ&ドロップ実装**
+**Step 6: @dnd-kit によるドラッグ&ドロップ実装 ✅ 完了**
 | ファイル | 変更内容 |
 |---------|---------|
 | `package.json` | `@dnd-kit/core`, `@dnd-kit/sortable` 追加 |
 | `src/components/cards/CardGrid.tsx` | DndContext, SortableContext 統合 |
-| `src/components/cards/CardItem.tsx` | useSortable フック使用 |
+| `src/components/cards/SortableCardItem.tsx` | 新規: ドラッグ可能カード（useSortable フック使用） |
 
-**Step 7: IndexPage の統合**
+**Step 7: IndexPage の統合 ✅ 完了**
 | ファイル | 変更内容 |
 |---------|---------|
 | `src/pages/IndexPage.tsx` | 全コンポーネント統合、キーボードショートカット追加（Ctrl+N, Delete, 矢印キー, Enter） |
 
-**Step 8: エラー状態カードの表示・編集**
+**Step 8: エラー状態カードの表示・編集 ✅ 完了**
 | ファイル | 変更内容 |
 |---------|---------|
 | `src/components/cards/CardItem.tsx` | エラー状態スタイル（赤枠、アイコン） |
@@ -885,6 +886,7 @@ src/components/
 └── cards/
     ├── CardGrid.tsx
     ├── CardItem.tsx
+    ├── SortableCardItem.tsx
     ├── CardAddModal.tsx
     └── CardEditModal.tsx
 
@@ -905,6 +907,130 @@ src-tauri/src/commands/
 - [ ] キーボードショートカット
 - [ ] コンテキストメニュー
 - [ ] 終了時の状態保存（プロファイルに保存）
+
+#### Phase 4 実装ステップ
+
+**Step 1: Rustバックエンド - 画像一覧・クリップボードコマンド追加**
+| ファイル | 変更内容 |
+|---------|---------|
+| `src-tauri/Cargo.toml` | `arboard` クレート追加（クリップボード用） |
+| `src-tauri/src/commands/images.rs` | `get_images_in_folder` 追加（画像一覧取得） |
+| `src-tauri/src/commands/clipboard.rs` | 新規: `copy_image_to_clipboard`, `copy_text_to_clipboard` |
+| `src-tauri/src/commands/mod.rs` | clipboard モジュール追加 |
+| `src-tauri/src/lib.rs` | 新規コマンド登録 |
+
+**Step 2: フロントエンドAPI層・型定義の拡張**
+| ファイル | 変更内容 |
+|---------|---------|
+| `src/types/index.ts` | `ImageInfo` 型が既存か確認、必要に応じて拡張 |
+| `src/api/tauri.ts` | `getImagesInFolder`, `copyImageToClipboard`, `copyTextToClipboard` 追加 |
+
+**Step 3: Zustandストア - ビューア状態管理**
+| ファイル | 変更内容 |
+|---------|---------|
+| `src/store/viewerStore.ts` | 新規: ビューア状態管理（currentIndex, images, hFlip, shuffle等） |
+
+ビューアストアの状態:
+```typescript
+interface ViewerState {
+  cardId: string | null;           // 表示中のカードID
+  images: ImageInfo[];             // フォルダ内の画像一覧
+  currentIndex: number;            // 現在の画像インデックス
+  shuffledIndices: number[] | null; // シャッフル時のインデックス配列
+  hFlipEnabled: boolean;           // H-Flip有効
+  shuffleEnabled: boolean;         // シャッフル有効
+}
+```
+
+**Step 4: ViewerPage基本実装 - 画像表示・ナビゲーション**
+| ファイル | 変更内容 |
+|---------|---------|
+| `src/pages/ViewerPage.tsx` | 画像表示、前後ナビゲーション、ヘッダー |
+| `src/components/viewer/ImageDisplay.tsx` | 新規: 画像表示コンポーネント |
+
+機能:
+- カードIDからフォルダパスを取得し、画像一覧を読み込み
+- 画像のフィット表示（ウィンドウサイズに合わせる）
+- クリックで次の画像へ
+- 戻るボタンでIndexPageへ
+
+**Step 5: H-Flip・シャッフル機能**
+| ファイル | 変更内容 |
+|---------|---------|
+| `src/components/viewer/ImageDisplay.tsx` | H-Flip対応（CSS transform: scaleX(-1)） |
+| `src/store/viewerStore.ts` | シャッフルロジック追加 |
+| `src/pages/ViewerPage.tsx` | H-Flip/Shuffleトグルボタン、状態表示 |
+
+シャッフルロジック:
+```typescript
+// シャッフル有効化時にインデックス配列を生成
+const shuffledIndices = [...Array(images.length).keys()]
+  .sort(() => Math.random() - 0.5);
+```
+
+**Step 6: キーボードショートカット**
+| ファイル | 変更内容 |
+|---------|---------|
+| `src/pages/ViewerPage.tsx` | useEffectでキーボードイベント処理 |
+
+| キー | 機能 |
+|------|------|
+| `←` / `→` | 前後の画像 |
+| `H` | H-Flipトグル |
+| `R` | シャッフルトグル |
+| `Space` | コンテキストメニュー表示 |
+| `Q` / `Escape` | IndexPageに戻る |
+
+**Step 7: コンテキストメニュー**
+| ファイル | 変更内容 |
+|---------|---------|
+| `src/components/common/ContextMenu.tsx` | 新規: 汎用コンテキストメニュー |
+| `src/pages/ViewerPage.tsx` | コンテキストメニュー統合 |
+
+メニュー項目:
+- Copy（画像をクリップボードにコピー）
+- Copy Path（ファイルパスをコピー）
+- H-Flip ON/OFF
+- Shuffle ON/OFF
+- Back to Index
+- Quit
+
+**Step 8: 状態保存・復元**
+| ファイル | 変更内容 |
+|---------|---------|
+| `src/store/profileStore.ts` | `updateAppState` メソッド追加 |
+| `src/pages/ViewerPage.tsx` | 終了時にappStateを更新して保存 |
+| `src/pages/IndexPage.tsx` | 起動時にappState.lastPageを確認してViewerPageへ遷移 |
+
+保存する状態:
+- `lastPage: "viewer"`
+- `lastCardId`: 表示中のカードID
+- `lastImageIndex`: 現在の画像インデックス
+- `hFlipEnabled`, `shuffleEnabled`
+
+#### Phase 4 新規ファイル一覧
+
+```
+src/components/
+├── common/
+│   └── ContextMenu.tsx
+└── viewer/
+    └── ImageDisplay.tsx
+
+src/store/
+└── viewerStore.ts
+
+src-tauri/src/commands/
+└── clipboard.rs
+```
+
+#### Phase 4 実装時の注意事項
+
+1. **画像読み込み**: 大きな画像はメモリを消費するため、表示サイズに応じた最適化を検討
+2. **シャッフル状態**: シャッフルインデックスはセッション中のみ保持（プロファイルには保存しない）
+3. **H-Flip**: CSSのtransformで実装、画像データ自体は変更しない
+4. **コンテキストメニュー**: 右クリックとSpaceキーの両方で表示
+5. **状態保存タイミング**: IndexPageへ戻る時、アプリ終了時に保存
 
 ### Phase 5: 仕上げ
 - [ ] エラーハンドリング
