@@ -20,8 +20,12 @@ use commands::{
     select_profile_save_path,
     // 画像
     get_first_image_in_folder,
+    get_images_in_folder,
     get_thumbnail,
     validate_folder_path,
+    // クリップボード
+    copy_image_to_clipboard,
+    copy_text_to_clipboard,
 };
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -47,7 +51,11 @@ pub fn run() {
             // 画像
             get_thumbnail,
             get_first_image_in_folder,
+            get_images_in_folder,
             validate_folder_path,
+            // クリップボード
+            copy_image_to_clipboard,
+            copy_text_to_clipboard,
         ])
         .run(tauri::generate_context!())
         .expect("Tauriアプリケーションの実行中にエラーが発生しました");

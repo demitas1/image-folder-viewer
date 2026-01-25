@@ -3,6 +3,7 @@
 use base64::{engine::general_purpose::STANDARD, Engine};
 use image::ImageReader;
 use once_cell::sync::Lazy;
+use serde::Serialize;
 use std::collections::HashMap;
 use std::fs;
 use std::io::Cursor;
@@ -156,4 +157,65 @@ pub fn get_first_image_in_folder(folder_path: String) -> Result<Option<String>, 
 pub fn validate_folder_path(path: String) -> Result<bool, String> {
     let folder_path = Path::new(&path);
     Ok(folder_path.exists() && folder_path.is_dir())
+}
+
+/// 画像ファイル情報（軽量版：パスとファイル名のみ）
+#[derive(Debug, Clone, Serialize)]
+pub struct ImageFile {
+    pub path: String,
+    pub filename: String,
+}
+
+/// フォルダ内のすべての画像ファイルを取得（ファイル名順でソート）
+#[tauri::command]
+pub fn get_images_in_folder(folder_path: String) -> Result<Vec<ImageFile>, String> {
+    let path = Path::new(&folder_path);
+
+    if !path.exists() {
+        return Err(format!("フォルダが見つかりません: {}", folder_path));
+    }
+
+    if !path.is_dir() {
+        return Err(format!(
+            "指定されたパスはフォルダではありません: {}",
+            folder_path
+        ));
+    }
+
+    // ディレクトリ内のエントリを取得
+    let mut entries: Vec<_> = fs::read_dir(path)
+        .map_err(|e| format!("フォルダの読み込みに失敗しました: {}", e))?
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| {
+            if let Ok(file_type) = entry.file_type() {
+                if file_type.is_file() {
+                    if let Some(ext) = entry.path().extension() {
+                        let ext_lower = ext.to_string_lossy().to_lowercase();
+                        return IMAGE_EXTENSIONS.contains(&ext_lower.as_str());
+                    }
+                }
+            }
+            false
+        })
+        .collect();
+
+    // ファイル名でソート
+    entries.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
+
+    // 画像ファイル情報を収集
+    let images: Vec<ImageFile> = entries
+        .iter()
+        .map(|entry| {
+            let file_path = entry.path();
+            ImageFile {
+                path: file_path.to_string_lossy().to_string(),
+                filename: file_path
+                    .file_name()
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_default(),
+            }
+        })
+        .collect();
+
+    Ok(images)
 }

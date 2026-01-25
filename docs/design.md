@@ -910,11 +910,11 @@ src-tauri/src/commands/
 
 #### Phase 4 実装ステップ
 
-**Step 1: Rustバックエンド - 画像一覧・クリップボードコマンド追加**
+**Step 1: Rustバックエンド - 画像一覧・クリップボードコマンド追加 ✅ 完了**
 | ファイル | 変更内容 |
 |---------|---------|
 | `src-tauri/Cargo.toml` | `arboard` クレート追加（クリップボード用） |
-| `src-tauri/src/commands/images.rs` | `get_images_in_folder` 追加（画像一覧取得） |
+| `src-tauri/src/commands/images.rs` | `get_images_in_folder` 追加（画像一覧取得、軽量版：path/filenameのみ） |
 | `src-tauri/src/commands/clipboard.rs` | 新規: `copy_image_to_clipboard`, `copy_text_to_clipboard` |
 | `src-tauri/src/commands/mod.rs` | clipboard モジュール追加 |
 | `src-tauri/src/lib.rs` | 新規コマンド登録 |
