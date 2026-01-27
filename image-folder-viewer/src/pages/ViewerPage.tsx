@@ -2,15 +2,62 @@
 
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useCallback } from "react";
+import { ArrowLeft } from "lucide-react";
+import { ImageDisplay } from "../components/viewer/ImageDisplay";
+import { useProfileStore } from "../store/profileStore";
+import {
+  useCurrentImage,
+  useNavigationState,
+  useViewerOptions,
+  useViewerActions,
+  useViewerStore,
+} from "../store/viewerStore";
 
 export function ViewerPage() {
   const { cardId } = useParams<{ cardId: string }>();
   const navigate = useNavigate();
 
+  // プロファイルからカード情報を取得
+  const currentProfile = useProfileStore((state) => state.currentProfile);
+  const card = currentProfile?.cards.find((c) => c.id === cardId) ?? null;
+
+  // ビューアストア
+  const currentImage = useCurrentImage();
+  const { currentIndex, totalImages, actualIndex } = useNavigationState();
+  const { hFlipEnabled, shuffleEnabled } = useViewerOptions();
+  const { loadImages, goToNext, goToPrev, reset } = useViewerActions();
+  const isLoading = useViewerStore((state) => state.isLoading);
+  const error = useViewerStore((state) => state.error);
+
   // インデックスページに戻る
   const handleBack = useCallback(() => {
+    reset();
     navigate("/");
-  }, [navigate]);
+  }, [navigate, reset]);
+
+  // 画像一覧の読み込み（プリミティブ値を依存配列に使用し、不要な再読み込みを防止）
+  const cardTitle = card?.title ?? "";
+  const folderPath = card?.folderPath;
+
+  useEffect(() => {
+    if (!cardId || !folderPath) return;
+
+    loadImages(cardId, cardTitle, folderPath);
+  }, [cardId, cardTitle, folderPath, loadImages]);
+
+  // プロファイルが読み込まれていない場合はStartupPageへ
+  useEffect(() => {
+    if (!currentProfile) {
+      navigate("/startup");
+    }
+  }, [currentProfile, navigate]);
+
+  // カードが見つからない場合はIndexPageへ
+  useEffect(() => {
+    if (currentProfile && !card) {
+      navigate("/");
+    }
+  }, [currentProfile, card, navigate]);
 
   // キーボードショートカット
   useEffect(() => {
@@ -22,83 +69,99 @@ export function ViewerPage() {
           handleBack();
           break;
         case "ArrowLeft":
-          // Phase 4で実装予定: 前の画像
-          console.log("前の画像");
+          goToPrev();
           break;
         case "ArrowRight":
-          // Phase 4で実装予定: 次の画像
-          console.log("次の画像");
-          break;
-        case "h":
-        case "H":
-          // Phase 4で実装予定: 水平反転トグル
-          console.log("H-Flip トグル");
-          break;
-        case "r":
-        case "R":
-          // Phase 4で実装予定: シャッフルトグル
-          console.log("シャッフル トグル");
-          break;
-        case " ":
-          // Phase 4で実装予定: コンテキストメニュー
-          e.preventDefault();
-          console.log("コンテキストメニュー");
+          goToNext();
           break;
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleBack]);
+  }, [handleBack, goToNext, goToPrev]);
+
+  // クリックで次の画像へ
+  const handleImageClick = useCallback(() => {
+    goToNext();
+  }, [goToNext]);
+
+  // カードが見つからない場合
+  if (!card) {
+    return null;
+  }
 
   return (
-    <div className="min-h-screen bg-black flex flex-col">
+    <div className="h-screen bg-black flex flex-col">
       {/* タイトルバー */}
-      <header className="bg-gray-900 text-white px-4 py-2 flex items-center justify-between">
-        <div className="flex items-center space-x-4">
+      <header className="bg-gray-900 text-white px-4 py-2 flex items-center justify-between shrink-0">
+        <div className="flex items-center space-x-4 min-w-0">
           <button
             onClick={handleBack}
-            className="px-3 py-1 bg-gray-700 rounded hover:bg-gray-600 transition"
+            className="flex items-center gap-1 px-3 py-1 bg-gray-700 rounded hover:bg-gray-600 transition shrink-0"
           >
+            <ArrowLeft size={16} />
             戻る
           </button>
-          <span className="text-sm text-gray-300">
-            カード: {cardId} - image_001.jpg
+          <span className="text-sm text-gray-300 truncate">
+            {card.title}
+            {currentImage && (
+              <span className="text-gray-500">
+                {" - "}
+                {currentImage.filename}
+              </span>
+            )}
           </span>
         </div>
-        <div className="flex items-center space-x-2">
-          {/* Phase 4で実装予定: H-Flip/Shuffleインジケーター */}
-          <span className="text-xs text-gray-500">[H] [R]</span>
+        <div className="flex items-center space-x-2 shrink-0">
+          {hFlipEnabled && (
+            <span className="text-xs bg-gray-700 px-2 py-0.5 rounded">H</span>
+          )}
+          {shuffleEnabled && (
+            <span className="text-xs bg-gray-700 px-2 py-0.5 rounded">R</span>
+          )}
         </div>
       </header>
 
       {/* 画像表示エリア */}
-      <main
-        className="flex-1 flex items-center justify-center cursor-pointer"
-        onClick={() => {
-          // Phase 4で実装予定: クリックで次の画像
-          console.log("次の画像へ");
-        }}
-      >
-        {/* プレースホルダー画像 */}
-        <div className="text-center">
-          <div className="w-96 h-64 bg-gray-800 rounded-lg flex items-center justify-center mb-4">
-            <span className="text-gray-500 text-6xl">?</span>
+      <main className="flex-1 flex items-center justify-center relative overflow-hidden">
+        {isLoading && (
+          <div className="text-gray-400 text-sm">読み込み中...</div>
+        )}
+
+        {error && (
+          <div className="text-center">
+            <div className="text-red-400 text-lg mb-2">{error}</div>
+            <button
+              onClick={handleBack}
+              className="text-gray-400 hover:text-white text-sm underline"
+            >
+              インデックスに戻る
+            </button>
           </div>
-          <p className="text-gray-400 text-sm">
-            画像を読み込み中...（Phase 4で実装予定）
-          </p>
-          <p className="text-gray-600 text-xs mt-2">
-            ESC/Q: 戻る | 左右キー: ナビゲーション | H: 反転 | R: シャッフル
-          </p>
-        </div>
+        )}
+
+        {!isLoading && !error && currentImage && (
+          <ImageDisplay
+            imagePath={currentImage.path}
+            hFlipEnabled={hFlipEnabled}
+            onClick={handleImageClick}
+          />
+        )}
       </main>
 
-      {/* フッター（画像情報） */}
-      <footer className="bg-gray-900 text-gray-400 px-4 py-2 text-xs flex justify-between">
-        <span>1 / 10</span>
-        <span>1920 x 1080 | 2.5 MB</span>
-      </footer>
+      {/* フッター（ナビゲーション情報） */}
+      {totalImages > 0 && (
+        <footer className="bg-gray-900 text-gray-400 px-4 py-1.5 text-xs flex justify-between shrink-0">
+          <span>
+            {(shuffleEnabled ? currentIndex : actualIndex) + 1} / {totalImages}
+            {shuffleEnabled && " (シャッフル)"}
+          </span>
+          <span className="text-gray-600">
+            ESC: 戻る | 左右キー: ナビゲーション
+          </span>
+        </footer>
+      )}
     </div>
   );
 }
