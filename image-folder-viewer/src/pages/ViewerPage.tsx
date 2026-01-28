@@ -75,12 +75,20 @@ export function ViewerPage() {
         case "ArrowRight":
           goToNext();
           break;
+        case "h":
+        case "H":
+          toggleHFlip();
+          break;
+        case "r":
+        case "R":
+          toggleShuffle();
+          break;
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleBack, goToNext, goToPrev]);
+  }, [handleBack, goToNext, goToPrev, toggleHFlip, toggleShuffle]);
 
   // クリックで次の画像へ
   const handleImageClick = useCallback(() => {
