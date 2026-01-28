@@ -1,8 +1,18 @@
 // クリップボード操作コマンド
+//
+// Linux/X11ではClipboardインスタンスがドロップされるとクリップボードの内容が
+// 失われるため、グローバルなインスタンスをアプリケーションのライフタイム全体で保持する。
 
 use arboard::Clipboard;
 use image::ImageReader;
+use once_cell::sync::Lazy;
 use std::path::Path;
+use std::sync::Mutex;
+
+/// グローバルClipboardインスタンス（Linux/X11対策）
+static CLIPBOARD: Lazy<Mutex<Clipboard>> = Lazy::new(|| {
+    Mutex::new(Clipboard::new().expect("クリップボードの初期化に失敗しました"))
+});
 
 /// 画像をクリップボードにコピー
 #[tauri::command]
@@ -24,8 +34,9 @@ pub fn copy_image_to_clipboard(image_path: String) -> Result<(), String> {
     let (width, height) = rgba.dimensions();
 
     // クリップボードに設定
-    let mut clipboard =
-        Clipboard::new().map_err(|e| format!("クリップボードの初期化に失敗しました: {}", e))?;
+    let mut clipboard = CLIPBOARD
+        .lock()
+        .map_err(|e| format!("クリップボードのロックに失敗しました: {}", e))?;
 
     let image_data = arboard::ImageData {
         width: width as usize,
@@ -43,8 +54,9 @@ pub fn copy_image_to_clipboard(image_path: String) -> Result<(), String> {
 /// テキストをクリップボードにコピー（パスコピー用）
 #[tauri::command]
 pub fn copy_text_to_clipboard(text: String) -> Result<(), String> {
-    let mut clipboard =
-        Clipboard::new().map_err(|e| format!("クリップボードの初期化に失敗しました: {}", e))?;
+    let mut clipboard = CLIPBOARD
+        .lock()
+        .map_err(|e| format!("クリップボードのロックに失敗しました: {}", e))?;
 
     clipboard
         .set_text(text)

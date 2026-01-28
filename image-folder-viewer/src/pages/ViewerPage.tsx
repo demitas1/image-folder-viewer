@@ -1,9 +1,14 @@
 // 画像ビューアページ
 
 import { useParams, useNavigate } from "react-router-dom";
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useState, useMemo } from "react";
 import { ArrowLeft } from "lucide-react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { ImageDisplay } from "../components/viewer/ImageDisplay";
+import {
+  ContextMenu,
+  type ContextMenuItem,
+} from "../components/common/ContextMenu";
 import { useProfileStore } from "../store/profileStore";
 import {
   useCurrentImage,
@@ -12,6 +17,7 @@ import {
   useViewerActions,
   useViewerStore,
 } from "../store/viewerStore";
+import { copyImageToClipboard, copyTextToClipboard } from "../api/tauri";
 
 export function ViewerPage() {
   const { cardId } = useParams<{ cardId: string }>();
@@ -29,6 +35,12 @@ export function ViewerPage() {
     useViewerActions();
   const isLoading = useViewerStore((state) => state.isLoading);
   const error = useViewerStore((state) => state.error);
+
+  // コンテキストメニュー状態
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
 
   // インデックスページに戻る
   const handleBack = useCallback(() => {
@@ -63,6 +75,9 @@ export function ViewerPage() {
   // キーボードショートカット
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // コンテキストメニュー表示中はメニュー側で処理する
+      if (contextMenu) return;
+
       switch (e.key) {
         case "Escape":
         case "q":
@@ -83,17 +98,101 @@ export function ViewerPage() {
         case "R":
           toggleShuffle();
           break;
+        case " ":
+          e.preventDefault();
+          // 画面中央にコンテキストメニューを表示
+          setContextMenu({
+            x: Math.round(window.innerWidth / 2),
+            y: Math.round(window.innerHeight / 2),
+          });
+          break;
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleBack, goToNext, goToPrev, toggleHFlip, toggleShuffle]);
+  }, [
+    contextMenu,
+    handleBack,
+    goToNext,
+    goToPrev,
+    toggleHFlip,
+    toggleShuffle,
+  ]);
+
+  // 右クリックでコンテキストメニュー表示
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      setContextMenu({ x: e.clientX, y: e.clientY });
+    },
+    []
+  );
+
+  // コンテキストメニューを閉じる
+  const closeContextMenu = useCallback(() => {
+    setContextMenu(null);
+  }, []);
 
   // クリックで次の画像へ
   const handleImageClick = useCallback(() => {
     goToNext();
   }, [goToNext]);
+
+  // コンテキストメニュー項目
+  const imagePath = currentImage?.path ?? null;
+  const contextMenuItems: ContextMenuItem[] = useMemo(() => {
+    const items: ContextMenuItem[] = [];
+
+    if (imagePath) {
+      items.push({
+        label: "コピー",
+        shortcut: "",
+        onClick: () => {
+          copyImageToClipboard(imagePath).catch((e) =>
+            console.error("画像コピーに失敗:", e)
+          );
+        },
+      });
+      items.push({
+        label: "パスをコピー",
+        shortcut: "",
+        onClick: () => {
+          copyTextToClipboard(imagePath).catch((e) =>
+            console.error("パスコピーに失敗:", e)
+          );
+        },
+      });
+    }
+
+    items.push({
+      label: `水平反転: ${hFlipEnabled ? "OFF" : "ON"}`,
+      shortcut: "H",
+      separator: true,
+      onClick: toggleHFlip,
+    });
+    items.push({
+      label: `シャッフル: ${shuffleEnabled ? "OFF" : "ON"}`,
+      shortcut: "R",
+      onClick: toggleShuffle,
+    });
+
+    items.push({
+      label: "インデックスに戻る",
+      shortcut: "ESC",
+      separator: true,
+      onClick: handleBack,
+    });
+    items.push({
+      label: "終了",
+      shortcut: "Q",
+      onClick: () => {
+        getCurrentWindow().close();
+      },
+    });
+
+    return items;
+  }, [imagePath, hFlipEnabled, shuffleEnabled, toggleHFlip, toggleShuffle, handleBack]);
 
   // カードが見つからない場合
   if (!card) {
@@ -101,7 +200,7 @@ export function ViewerPage() {
   }
 
   return (
-    <div className="h-screen bg-black flex flex-col">
+    <div className="h-screen bg-black flex flex-col" onContextMenu={handleContextMenu}>
       {/* タイトルバー */}
       <header className="bg-gray-900 text-white px-4 py-2 flex items-center justify-between shrink-0">
         <div className="flex items-center space-x-4 min-w-0">
@@ -183,9 +282,20 @@ export function ViewerPage() {
             {shuffleEnabled && " (シャッフル)"}
           </span>
           <span className="text-gray-600">
-            ←→: ナビゲーション | H: 反転 | R: シャッフル | ESC: 戻る
+            ←→: ナビゲーション | H: 反転 | R: シャッフル | Space: メニュー |
+            ESC: 戻る
           </span>
         </footer>
+      )}
+
+      {/* コンテキストメニュー */}
+      {contextMenu && (
+        <ContextMenu
+          items={contextMenuItems}
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={closeContextMenu}
+        />
       )}
     </div>
   );
