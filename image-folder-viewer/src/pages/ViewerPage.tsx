@@ -25,7 +25,8 @@ export function ViewerPage() {
   const currentImage = useCurrentImage();
   const { currentIndex, totalImages, actualIndex } = useNavigationState();
   const { hFlipEnabled, shuffleEnabled } = useViewerOptions();
-  const { loadImages, goToNext, goToPrev, reset } = useViewerActions();
+  const { loadImages, goToNext, goToPrev, toggleHFlip, toggleShuffle, reset } =
+    useViewerActions();
   const isLoading = useViewerStore((state) => state.isLoading);
   const error = useViewerStore((state) => state.error);
 
@@ -114,12 +115,28 @@ export function ViewerPage() {
           </span>
         </div>
         <div className="flex items-center space-x-2 shrink-0">
-          {hFlipEnabled && (
-            <span className="text-xs bg-gray-700 px-2 py-0.5 rounded">H</span>
-          )}
-          {shuffleEnabled && (
-            <span className="text-xs bg-gray-700 px-2 py-0.5 rounded">R</span>
-          )}
+          <button
+            onClick={toggleHFlip}
+            className={`text-xs px-2 py-0.5 rounded transition ${
+              hFlipEnabled
+                ? "bg-blue-600 text-white"
+                : "bg-gray-700 text-gray-400 hover:bg-gray-600"
+            }`}
+            title="水平反転 (H)"
+          >
+            H
+          </button>
+          <button
+            onClick={toggleShuffle}
+            className={`text-xs px-2 py-0.5 rounded transition ${
+              shuffleEnabled
+                ? "bg-blue-600 text-white"
+                : "bg-gray-700 text-gray-400 hover:bg-gray-600"
+            }`}
+            title="シャッフル (R)"
+          >
+            R
+          </button>
         </div>
       </header>
 
@@ -158,7 +175,7 @@ export function ViewerPage() {
             {shuffleEnabled && " (シャッフル)"}
           </span>
           <span className="text-gray-600">
-            ESC: 戻る | 左右キー: ナビゲーション
+            ←→: ナビゲーション | H: 反転 | R: シャッフル | ESC: 戻る
           </span>
         </footer>
       )}

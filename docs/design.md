@@ -953,17 +953,22 @@ interface ViewerState {
 - `useViewerOptions()` - 表示オプション（hFlip, shuffle）
 - `useViewerActions()` - ビューアアクション
 
-**Step 4: ViewerPage基本実装 - 画像表示・ナビゲーション**
+**Step 4: ViewerPage基本実装 - 画像表示・ナビゲーション ✅ 完了**
 | ファイル | 変更内容 |
 |---------|---------|
-| `src/pages/ViewerPage.tsx` | 画像表示、前後ナビゲーション、ヘッダー |
-| `src/components/viewer/ImageDisplay.tsx` | 新規: 画像表示コンポーネント |
+| `src-tauri/tauri.conf.json` | `assetProtocol` 有効化（ローカル画像のWebView表示用） |
+| `src/pages/ViewerPage.tsx` | スケルトンから本実装に更新（画像表示、ナビゲーション、ヘッダー/フッター） |
+| `src/components/viewer/ImageDisplay.tsx` | 新規: 画像表示コンポーネント（`convertFileSrc`でローカルファイル表示、H-Flip対応） |
 
 機能:
 - カードIDからフォルダパスを取得し、画像一覧を読み込み
-- 画像のフィット表示（ウィンドウサイズに合わせる）
-- クリックで次の画像へ
-- 戻るボタンでIndexPageへ
+- `convertFileSrc`（Tauri asset protocol）でローカル画像をWebViewに表示
+- 画像のフィット表示（`object-contain`でウィンドウサイズに合わせる）
+- クリックで次の画像へ、←→キーで前後ナビゲーション
+- 戻るボタン / ESC / Q でIndexPageへ（ビューアストアをリセット）
+- ヘッダー: カードタイトル + ファイル名、H-Flip/Shuffleインジケーター
+- フッター: 現在位置/総枚数表示
+- エラーハンドリング: プロファイル未読み込み・カード不存在時のリダイレクト、画像読み込みエラー表示
 
 **Step 5: H-Flip・シャッフル機能**
 | ファイル | 変更内容 |
