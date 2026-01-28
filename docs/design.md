@@ -901,11 +901,11 @@ src-tauri/src/commands/
 3. **@dnd-kit**: `rectSortingStrategy` でグリッド対応、`arrayMove` で並べ替え
 4. **エラー状態**: `isValid === false` のカードは赤枠表示、クリック無効
 
-### Phase 4: 画像ビューア
-- [ ] 画像表示（H-Flip対応）
-- [ ] ナビゲーション（前後移動、シャッフル）
-- [ ] キーボードショートカット
-- [ ] コンテキストメニュー
+### Phase 4: 画像ビューア（実装中）
+- [x] 画像表示（H-Flip対応）
+- [x] ナビゲーション（前後移動、シャッフル）
+- [x] キーボードショートカット
+- [x] コンテキストメニュー
 - [ ] 終了時の状態保存（プロファイルに保存）
 
 #### Phase 4 実装ステップ
@@ -970,46 +970,44 @@ interface ViewerState {
 - フッター: 現在位置/総枚数表示
 - エラーハンドリング: プロファイル未読み込み・カード不存在時のリダイレクト、画像読み込みエラー表示
 
-**Step 5: H-Flip・シャッフル機能**
+**Step 5: H-Flip・シャッフル機能 ✅ 完了**
 | ファイル | 変更内容 |
 |---------|---------|
-| `src/components/viewer/ImageDisplay.tsx` | H-Flip対応（CSS transform: scaleX(-1)） |
-| `src/store/viewerStore.ts` | シャッフルロジック追加 |
-| `src/pages/ViewerPage.tsx` | H-Flip/Shuffleトグルボタン、状態表示 |
+| `src/pages/ViewerPage.tsx` | ヘッダーにH-Flip/Shuffleのインタラクティブなトグルボタン追加（有効時: 青背景、無効時: グレー） |
 
-シャッフルロジック:
-```typescript
-// シャッフル有効化時にインデックス配列を生成
-const shuffledIndices = [...Array(images.length).keys()]
-  .sort(() => Math.random() - 0.5);
-```
+※ ImageDisplay.tsxのH-Flip（CSS `scaleX(-1)`）、viewerStore.tsのシャッフルロジック（Fisher-Yatesアルゴリズム）はStep 3-4で実装済み
 
-**Step 6: キーボードショートカット**
+**Step 6: キーボードショートカット ✅ 完了**
 | ファイル | 変更内容 |
 |---------|---------|
-| `src/pages/ViewerPage.tsx` | useEffectでキーボードイベント処理 |
+| `src/pages/ViewerPage.tsx` | useEffectでキーボードイベント処理（H, Rキー追加、Spaceキー追加） |
 
 | キー | 機能 |
 |------|------|
 | `←` / `→` | 前後の画像 |
 | `H` | H-Flipトグル |
 | `R` | シャッフルトグル |
-| `Space` | コンテキストメニュー表示 |
+| `Space` | コンテキストメニュー表示（画面中央） |
 | `Q` / `Escape` | IndexPageに戻る |
 
-**Step 7: コンテキストメニュー**
+**Step 7: コンテキストメニュー ✅ 完了**
 | ファイル | 変更内容 |
 |---------|---------|
-| `src/components/common/ContextMenu.tsx` | 新規: 汎用コンテキストメニュー |
-| `src/pages/ViewerPage.tsx` | コンテキストメニュー統合 |
+| `src/components/common/ContextMenu.tsx` | 新規: 汎用コンテキストメニュー（createPortal、画面端自動調整、ESCで閉じる） |
+| `src/pages/ViewerPage.tsx` | コンテキストメニュー統合（右クリック + Spaceキー） |
+| `src-tauri/src/commands/clipboard.rs` | グローバルClipboardインスタンスに変更（Linux/X11対策） |
 
 メニュー項目:
-- Copy（画像をクリップボードにコピー）
-- Copy Path（ファイルパスをコピー）
-- H-Flip ON/OFF
-- Shuffle ON/OFF
-- Back to Index
-- Quit
+- コピー（画像をクリップボードにコピー）
+- パスをコピー（ファイルパスをコピー）
+- 水平反転: ON/OFF
+- シャッフル: ON/OFF
+- インデックスに戻る
+- 終了（`getCurrentWindow().close()`）
+
+Linux/X11対策:
+- `arboard::Clipboard` を `once_cell::sync::Lazy<Mutex<Clipboard>>` でグローバルに保持
+- 関数終了時のClipboardドロップによるクリップボード内容消失を防止
 
 **Step 8: 状態保存・復元**
 | ファイル | 変更内容 |
