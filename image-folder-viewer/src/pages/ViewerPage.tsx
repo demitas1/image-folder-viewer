@@ -10,6 +10,7 @@ import {
   type ContextMenuItem,
 } from "../components/common/ContextMenu";
 import { useProfileStore } from "../store/profileStore";
+import { saveProfile } from "../api/tauri";
 import {
   useCurrentImage,
   useNavigationState,
@@ -25,6 +26,7 @@ export function ViewerPage() {
 
   // プロファイルからカード情報を取得
   const currentProfile = useProfileStore((state) => state.currentProfile);
+  const updateAppState = useProfileStore((state) => state.updateAppState);
   const card = currentProfile?.cards.find((c) => c.id === cardId) ?? null;
 
   // ビューアストア
@@ -42,11 +44,41 @@ export function ViewerPage() {
     y: number;
   } | null>(null);
 
+  // ビューア状態をappStateに保存
+  const saveViewerState = useCallback(() => {
+    const viewerState = useViewerStore.getState();
+    // シャッフル時は元のインデックスを保存
+    const imageIndex = viewerState.shuffledIndices
+      ? viewerState.shuffledIndices[viewerState.currentIndex]
+      : viewerState.currentIndex;
+
+    updateAppState({
+      lastPage: "viewer",
+      lastCardId: viewerState.cardId,
+      lastImageIndex: imageIndex,
+      hFlipEnabled: viewerState.hFlipEnabled,
+      shuffleEnabled: viewerState.shuffleEnabled,
+    });
+  }, [updateAppState]);
+
   // インデックスページに戻る
   const handleBack = useCallback(() => {
+    // IndexPageに戻るのでlastPageをindexに設定して保存
+    updateAppState({ lastPage: "index" });
+
+    // 保存実行
+    const { currentProfile: profile, currentProfilePath: path } =
+      useProfileStore.getState();
+    if (profile && path) {
+      saveProfile(path, {
+        ...profile,
+        appState: { ...profile.appState, lastPage: "index" },
+      }).catch((e) => console.error("プロファイル保存に失敗:", e));
+    }
+
     reset();
     navigate("/");
-  }, [navigate, reset]);
+  }, [navigate, reset, updateAppState]);
 
   // 画像一覧の読み込み（プリミティブ値を依存配列に使用し、不要な再読み込みを防止）
   const cardTitle = card?.title ?? "";
@@ -55,8 +87,19 @@ export function ViewerPage() {
   useEffect(() => {
     if (!cardId || !folderPath) return;
 
-    loadImages(cardId, cardTitle, folderPath);
-  }, [cardId, cardTitle, folderPath, loadImages]);
+    // appStateから前回の状態を復元
+    const appState = currentProfile?.appState;
+    const isRestore = appState?.lastPage === "viewer" && appState?.lastCardId === cardId;
+
+    loadImages(
+      cardId,
+      cardTitle,
+      folderPath,
+      isRestore ? appState.lastImageIndex : 0,
+      isRestore ? appState.hFlipEnabled : false,
+      isRestore ? appState.shuffleEnabled : false,
+    );
+  }, [cardId, cardTitle, folderPath, loadImages]); // currentProfileは意図的に依存配列から除外
 
   // プロファイルが読み込まれていない場合はStartupPageへ
   useEffect(() => {
@@ -71,6 +114,26 @@ export function ViewerPage() {
       navigate("/");
     }
   }, [currentProfile, card, navigate]);
+
+  // ウィンドウclose時にビューア状態を保存
+  useEffect(() => {
+    const unlisten = getCurrentWindow().onCloseRequested(() => {
+      saveViewerState();
+
+      // ベストエフォートで保存（awaitしない：IPC通信がclose中に完了しない可能性があるため）
+      const { currentProfile: profile, currentProfilePath: path } =
+        useProfileStore.getState();
+      if (profile && path) {
+        saveProfile(path, profile).catch((e) =>
+          console.error("プロファイル保存に失敗:", e)
+        );
+      }
+    });
+
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, [saveViewerState]);
 
   // キーボードショートカット
   useEffect(() => {
@@ -187,6 +250,7 @@ export function ViewerPage() {
       label: "終了",
       shortcut: "Q",
       onClick: () => {
+        // onCloseRequestedで保存処理が実行される
         getCurrentWindow().close();
       },
     });

@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
-import type { ProfileData, AppConfig, RecentProfile, Card } from "../types";
+import type { ProfileData, AppConfig, RecentProfile, Card, AppState } from "../types";
 import {
   loadProfile,
   saveProfile,
@@ -65,6 +65,9 @@ interface ProfileActions {
   updateCard: (cardId: string, input: UpdateCardInput) => Card | null;
   deleteCard: (cardId: string) => boolean;
   reorderCards: (cardIds: string[]) => void;
+
+  // appState更新
+  updateAppState: (partial: Partial<AppState>) => void;
 
   // 履歴操作
   removeFromHistory: (path: string) => Promise<void>;
@@ -362,6 +365,24 @@ export const useProfileStore = create<ProfileState & ProfileActions>(
         currentProfile: {
           ...currentProfile,
           cards: [...reorderedCards, ...remainingCards],
+          updatedAt: now,
+        },
+      });
+    },
+
+    // appState更新
+    updateAppState: (partial: Partial<AppState>) => {
+      const { currentProfile } = get();
+      if (!currentProfile) return;
+
+      const now = new Date().toISOString();
+      set({
+        currentProfile: {
+          ...currentProfile,
+          appState: {
+            ...currentProfile.appState,
+            ...partial,
+          },
           updatedAt: now,
         },
       });

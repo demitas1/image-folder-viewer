@@ -1,6 +1,6 @@
 // インデックスページ - フォルダカードのグリッド表示
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { ProfileSelector } from "../components/profile/ProfileSelector";
@@ -23,6 +23,10 @@ export function IndexPage() {
     useProfileStore();
   const cards = useCards();
   const { addCard, updateCard, deleteCard, reorderCards } = useCardActions();
+  const updateAppState = useProfileStore((state) => state.updateAppState);
+
+  // 状態復元フラグ（一度だけ実行）
+  const restoredRef = useRef(false);
 
   // モーダル状態
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -42,6 +46,24 @@ export function IndexPage() {
       navigate("/startup");
     }
   }, [currentProfile, navigate]);
+
+  // 状態復元: 前回ViewerPageだった場合は復元遷移
+  useEffect(() => {
+    if (!currentProfile || restoredRef.current) return;
+    restoredRef.current = true;
+
+    const { appState } = currentProfile;
+    if (
+      appState.lastPage === "viewer" &&
+      appState.lastCardId &&
+      currentProfile.cards.some((c) => c.id === appState.lastCardId)
+    ) {
+      navigate(`/viewer/${appState.lastCardId}`, { replace: true });
+    } else {
+      // IndexPageにいるのでlastPageをindexに更新
+      updateAppState({ lastPage: "index" });
+    }
+  }, [currentProfile, navigate, updateAppState]);
 
   // カードのフォルダパス検証
   useEffect(() => {
