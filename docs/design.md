@@ -901,12 +901,12 @@ src-tauri/src/commands/
 3. **@dnd-kit**: `rectSortingStrategy` でグリッド対応、`arrayMove` で並べ替え
 4. **エラー状態**: `isValid === false` のカードは赤枠表示、クリック無効
 
-### Phase 4: 画像ビューア（実装中）
+### Phase 4: 画像ビューア ✅ 完了
 - [x] 画像表示（H-Flip対応）
 - [x] ナビゲーション（前後移動、シャッフル）
 - [x] キーボードショートカット
 - [x] コンテキストメニュー
-- [ ] 終了時の状態保存（プロファイルに保存）
+- [x] 終了時の状態保存（プロファイルに保存）
 
 #### Phase 4 実装ステップ
 
@@ -1009,18 +1009,34 @@ Linux/X11対策:
 - `arboard::Clipboard` を `once_cell::sync::Lazy<Mutex<Clipboard>>` でグローバルに保持
 - 関数終了時のClipboardドロップによるクリップボード内容消失を防止
 
-**Step 8: 状態保存・復元**
+**Step 8: 状態保存・復元 ✅ 完了**
 | ファイル | 変更内容 |
 |---------|---------|
-| `src/store/profileStore.ts` | `updateAppState` メソッド追加 |
-| `src/pages/ViewerPage.tsx` | 終了時にappStateを更新して保存 |
-| `src/pages/IndexPage.tsx` | 起動時にappState.lastPageを確認してViewerPageへ遷移 |
+| `src/store/profileStore.ts` | `updateAppState(partial)` メソッド追加（appStateの部分更新） |
+| `src/pages/ViewerPage.tsx` | 状態変化時にappStateを更新してプロファイル保存 |
+| `src/pages/IndexPage.tsx` | 起動時にappState.lastPageを確認してViewerPageへ復元遷移 |
+| `src-tauri/capabilities/default.json` | `core:window:allow-close`, `core:window:allow-destroy` パーミッション追加 |
 
 保存する状態:
-- `lastPage: "viewer"`
+- `lastPage: "viewer"` / `"index"`
 - `lastCardId`: 表示中のカードID
-- `lastImageIndex`: 現在の画像インデックス
+- `lastImageIndex`: 現在の画像インデックス（シャッフル時は元のインデックスを保存）
 - `hFlipEnabled`, `shuffleEnabled`
+
+保存タイミング:
+- 新しい画像を表示したとき（`actualIndex`の変化を監視）
+- H-Flip / シャッフルをトグルしたとき（`hFlipEnabled`, `shuffleEnabled`の変化を監視）
+- インデックスページに戻ったとき（`lastPage: "index"`で保存）
+- 終了時の保存は不要（上記タイミング以降アプリ終了まで状態変化がないため）
+- 初回読み込み時（`loadImages`直後）は`isInitialLoadRef`でスキップし、不要な保存を回避
+
+復元動作:
+- IndexPage表示時にappState.lastPageが`"viewer"`かつ該当カードが存在する場合、ViewerPageへ直接遷移
+- `loadImages`に前回のインデックス・H-Flip・Shuffle状態を渡して復元
+- 該当カードが削除されている場合はIndexPageで起動（フォールバック）
+
+注意事項:
+- Tauri v2では`getCurrentWindow().close()`に`core:window:allow-close`と`core:window:allow-destroy`の両方のパーミッションが必要
 
 #### Phase 4 新規ファイル一覧
 
@@ -1044,13 +1060,57 @@ src-tauri/src/commands/
 2. **シャッフル状態**: シャッフルインデックスはセッション中のみ保持（プロファイルには保存しない）
 3. **H-Flip**: CSSのtransformで実装、画像データ自体は変更しない
 4. **コンテキストメニュー**: 右クリックとSpaceキーの両方で表示
-5. **状態保存タイミング**: IndexPageへ戻る時、アプリ終了時に保存
+5. **状態保存タイミング**: 画像表示変更時、H-Flip/Shuffleトグル時、IndexPageへ戻る時に保存（終了時の保存は不要）
+6. **Tauri v2パーミッション**: `getCurrentWindow().close()`には`core:window:allow-close`と`core:window:allow-destroy`の両方が必要
 
 ### Phase 5: 仕上げ
-- [ ] エラーハンドリング
-- [ ] パフォーマンス最適化（サムネイルキャッシュ等）
-- [ ] UI/UXの調整
-- [ ] クロスプラットフォームビルド・テスト
+
+#### 5.1 エラーハンドリング改善
+
+| 項目 | 現状 | 対応内容 | 対象ファイル |
+|------|------|---------|------------|
+| カード追加モーダルのエラー表示 | `console.error`のみ、UIフィードバックなし | モーダル内にエラーメッセージ表示エリア追加 | `CardAddModal.tsx` |
+| カード編集モーダルのエラー表示 | 同上 | 同上 | `CardEditModal.tsx` |
+| プロファイル保存失敗の通知 | `console.error`のみ | ユーザーへの通知（トーストまたはバナー） | `ViewerPage.tsx`, `IndexPage.tsx` |
+| クリップボードコピー結果の通知 | 成功/失敗ともフィードバックなし | 成功時・失敗時のトースト通知 | `ViewerPage.tsx` |
+| Clipboard初期化エラー | `expect()`でパニック | `Result`で返却し、コマンド実行時にエラーメッセージ返却 | `clipboard.rs` |
+| ダイアログキャンセルの区別 | カード追加時にキャンセルするとモーダルが閉じる | キャンセル時はモーダルを維持 | `CardAddModal.tsx` |
+| ビューア復元時のファイル不一致 | インデックス番号で位置を保存しているため、ファイル構成変化時に別画像が表示される | `lastImageFilename`を追加保存し、復元時にファイル名でマッチング。不一致時はメッセージ表示後IndexPageに戻る | `types/index.ts`, `viewerStore.ts`, `ViewerPage.tsx`, `profileStore.ts`, `profile.rs` |
+| ビューア復元時のフォルダ不存在 | エラーメッセージは表示されるが、ViewerPageに留まったまま | メッセージ表示後に自動でIndexPageに戻る | `ViewerPage.tsx` |
+
+#### 5.2 パフォーマンス最適化
+
+| 項目 | 現状 | 対応内容 | 対象ファイル |
+|------|------|---------|------------|
+| フロントエンドサムネイルキャッシュ | なし（Rust側LRUキャッシュのみ） | グローバルMapでキャッシュし再マウント時の再取得を防止 | 新規 `thumbnailCache.ts`, `CardItem.tsx` |
+| 同時リクエスト制御 | 制御なし（カード数分同時発行） | 同時実行数を制限するキュー（4並列程度） | 新規 `thumbnailCache.ts` |
+| ディスクサムネイルキャッシュ | なし（メモリキャッシュのみ、アプリ終了時に消失） | `app_cache_dir()`配下にJPEGファイルとして保存。パス+サイズのハッシュをファイル名に使用。元画像の更新日時でキャッシュ有効性を判定 | `images.rs`, Tauri設定 |
+| 大量カード時の仮想スクロール | 全カード同時レンダリング | React Window等で可視範囲のみレンダリング | `CardGrid.tsx` |
+
+#### 5.3 UI/UX調整
+
+| 項目 | 現状 | 対応内容 | 対象ファイル |
+|------|------|---------|------------|
+| 削除確認ダイアログ | `window.confirm`使用 | カスタムConfirmモーダルに統一 | `IndexPage.tsx`, `Modal.tsx` |
+| コンテキストメニューのキーボード操作 | ESCのみ対応 | 矢印キー上下で項目選択、Enterで実行 | `ContextMenu.tsx` |
+| IndexPageのキーボードショートカット不足 | Ctrl+O, Ctrl+Shift+S 未実装 | プロファイルを開く、別名保存のショートカット追加 | `IndexPage.tsx` |
+| IndexPageのショートカットヘルプ | 表示なし | フッターまたはヘルプパネルで表示 | `IndexPage.tsx` |
+| ローディング表示の統一 | IndexPageはローディング表示なし。ViewerPage・CardItemはテキストのみ | 共通のスピナーコンポーネントを作成し、プロファイル読み込み・保存・画像読み込み・サムネイル取得中に回転アイコンを表示 | 新規 `Spinner.tsx`, `IndexPage.tsx`, `ViewerPage.tsx`, `CardItem.tsx`, `ProfileSelector.tsx` |
+| ビューアのズーム機能 | 未実装（ウィンドウサイズにフィット表示のみ） | `+`/`=`キーで20%ズームアップ、`-`キーで20%ズームダウン。ズーム時にウィンドウサイズを画像のアスペクト比を維持したまま連動リサイズ。画像切り替え時はウィンドウサイズ基準でズーム率を再計算（フィット表示に戻る） | `ViewerPage.tsx`, `ImageDisplay.tsx`, `viewerStore.ts` |
+
+#### 5.4 状態保存の拡張
+
+| 項目 | 現状 | 対応内容 | 対象ファイル |
+|------|------|---------|------------|
+| ウィンドウ位置・サイズの保存 | 未実装（AppState型定義はあるが使われていない） | ウィンドウ位置・サイズをappStateに保存し起動時に復元 | `ViewerPage.tsx`, `IndexPage.tsx`, Tauri設定 |
+
+#### 5.5 クロスプラットフォーム
+
+| 項目 | 対応内容 |
+|------|---------|
+| Windows/macOS/Linuxビルド確認 | 各プラットフォームでビルド・動作確認 |
+| ファイルパスの表示 | パス区切り文字の違いを確認 |
+| クリップボード動作確認 | arboardの各プラットフォーム動作確認（特にWayland） |
 
 ---
 

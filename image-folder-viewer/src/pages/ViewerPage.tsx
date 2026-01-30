@@ -1,7 +1,7 @@
 // 画像ビューアページ
 
 import { useParams, useNavigate } from "react-router-dom";
-import { useEffect, useCallback, useState, useMemo } from "react";
+import { useEffect, useCallback, useState, useMemo, useRef } from "react";
 import { ArrowLeft } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { ImageDisplay } from "../components/viewer/ImageDisplay";
@@ -44,7 +44,10 @@ export function ViewerPage() {
     y: number;
   } | null>(null);
 
-  // ビューア状態をappStateに保存
+  // 初回読み込みスキップ用フラグ
+  const isInitialLoadRef = useRef(true);
+
+  // ビューア状態をappStateに保存し、プロファイルをディスクに書き出す
   const saveViewerState = useCallback(() => {
     const viewerState = useViewerStore.getState();
     // シャッフル時は元のインデックスを保存
@@ -59,7 +62,29 @@ export function ViewerPage() {
       hFlipEnabled: viewerState.hFlipEnabled,
       shuffleEnabled: viewerState.shuffleEnabled,
     });
+
+    // プロファイルをディスクに保存
+    const { currentProfile: profile, currentProfilePath: path } =
+      useProfileStore.getState();
+    if (profile && path) {
+      saveProfile(path, profile).catch((e) =>
+        console.error("プロファイル保存に失敗:", e)
+      );
+    }
   }, [updateAppState]);
+
+  // 画像表示・オプション変更時にビューア状態を保存
+  useEffect(() => {
+    // 初回読み込み時（loadImages完了直後）はスキップ
+    if (isInitialLoadRef.current) {
+      if (totalImages > 0) {
+        isInitialLoadRef.current = false;
+      }
+      return;
+    }
+
+    saveViewerState();
+  }, [actualIndex, hFlipEnabled, shuffleEnabled, saveViewerState, totalImages]);
 
   // インデックスページに戻る
   const handleBack = useCallback(() => {
@@ -70,10 +95,9 @@ export function ViewerPage() {
     const { currentProfile: profile, currentProfilePath: path } =
       useProfileStore.getState();
     if (profile && path) {
-      saveProfile(path, {
-        ...profile,
-        appState: { ...profile.appState, lastPage: "index" },
-      }).catch((e) => console.error("プロファイル保存に失敗:", e));
+      saveProfile(path, profile).catch((e) =>
+        console.error("プロファイル保存に失敗:", e)
+      );
     }
 
     reset();
@@ -114,26 +138,6 @@ export function ViewerPage() {
       navigate("/");
     }
   }, [currentProfile, card, navigate]);
-
-  // ウィンドウclose時にビューア状態を保存
-  useEffect(() => {
-    const unlisten = getCurrentWindow().onCloseRequested(() => {
-      saveViewerState();
-
-      // ベストエフォートで保存（awaitしない：IPC通信がclose中に完了しない可能性があるため）
-      const { currentProfile: profile, currentProfilePath: path } =
-        useProfileStore.getState();
-      if (profile && path) {
-        saveProfile(path, profile).catch((e) =>
-          console.error("プロファイル保存に失敗:", e)
-        );
-      }
-    });
-
-    return () => {
-      unlisten.then((fn) => fn());
-    };
-  }, [saveViewerState]);
 
   // キーボードショートカット
   useEffect(() => {
