@@ -29,4 +29,5 @@ image = "0.25"
 base64 = "0.22"
 once_cell = "1.19"
 arboard = "3.4"
+sha2 = "0.10"
 
