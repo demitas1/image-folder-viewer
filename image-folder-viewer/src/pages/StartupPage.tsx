@@ -6,6 +6,7 @@ import {
   useProfileStore,
   useRecentProfiles,
 } from "../store/profileStore";
+import { Spinner } from "../components/common/Spinner";
 
 export function StartupPage() {
   const navigate = useNavigate();
@@ -112,12 +113,7 @@ export function StartupPage() {
 
           {/* ローディング */}
           {isLoading && (
-            <div className="mb-4 text-center">
-              <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-blue-600 border-t-transparent"></div>
-              <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">
-                読み込み中...
-              </p>
-            </div>
+            <Spinner text="読み込み中..." className="mb-4" />
           )}
 
           {/* アクションボタン */}

@@ -3,6 +3,7 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useCallback, useState, useMemo, useRef } from "react";
 import { ArrowLeft } from "lucide-react";
+import { Spinner } from "../components/common/Spinner";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { ImageDisplay } from "../components/viewer/ImageDisplay";
 import {
@@ -318,7 +319,7 @@ export function ViewerPage() {
       {/* 画像表示エリア */}
       <main className="flex-1 flex items-center justify-center relative overflow-hidden">
         {isLoading && (
-          <div className="text-gray-400 text-sm">読み込み中...</div>
+          <Spinner size="lg" text="読み込み中..." />
         )}
 
         {error && (

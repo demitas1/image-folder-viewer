@@ -7,6 +7,7 @@ import {
   useRecentProfiles,
   useCurrentProfileName,
 } from "../../store/profileStore";
+import { Spinner } from "../common/Spinner";
 
 export function ProfileSelector() {
   const navigate = useNavigate();
@@ -86,6 +87,7 @@ export function ProfileSelector() {
         <span className="text-lg font-semibold text-gray-800 dark:text-gray-100">
           {currentProfileName || "プロファイル"}
         </span>
+        {isLoading && <Spinner size="sm" />}
         <svg
           className={`w-4 h-4 text-gray-500 transition-transform ${
             isOpen ? "rotate-180" : ""
