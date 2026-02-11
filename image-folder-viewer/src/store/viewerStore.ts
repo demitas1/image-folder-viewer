@@ -24,6 +24,7 @@ interface ViewerState {
   // 表示オプション
   hFlipEnabled: boolean;
   shuffleEnabled: boolean;
+  zoomLevel: number;
 
   // 読み込み状態
   isLoading: boolean;
@@ -52,6 +53,11 @@ interface ViewerActions {
   setHFlip: (enabled: boolean) => void;
   setShuffle: (enabled: boolean) => void;
 
+  // ズーム
+  zoomIn: () => void;
+  zoomOut: () => void;
+  resetZoom: () => void;
+
   // リセット
   reset: () => void;
 
@@ -69,6 +75,7 @@ const initialState: ViewerState = {
   shuffledIndices: null,
   hFlipEnabled: false,
   shuffleEnabled: false,
+  zoomLevel: 1.0,
   isLoading: false,
   error: null,
 };
@@ -152,7 +159,7 @@ export const useViewerStore = create<ViewerState & ViewerActions>((set, get) => 
     if (images.length === 0) return;
 
     const nextIndex = (currentIndex + 1) % images.length;
-    set({ currentIndex: nextIndex });
+    set({ currentIndex: nextIndex, zoomLevel: 1.0 });
   },
 
   // 前の画像へ
@@ -161,7 +168,7 @@ export const useViewerStore = create<ViewerState & ViewerActions>((set, get) => 
     if (images.length === 0) return;
 
     const prevIndex = (currentIndex - 1 + images.length) % images.length;
-    set({ currentIndex: prevIndex });
+    set({ currentIndex: prevIndex, zoomLevel: 1.0 });
   },
 
   // 指定インデックスへ
@@ -170,7 +177,7 @@ export const useViewerStore = create<ViewerState & ViewerActions>((set, get) => 
     if (images.length === 0) return;
 
     const validIndex = Math.max(0, Math.min(index, images.length - 1));
-    set({ currentIndex: validIndex });
+    set({ currentIndex: validIndex, zoomLevel: 1.0 });
   },
 
   // H-Flipトグル
@@ -231,6 +238,25 @@ export const useViewerStore = create<ViewerState & ViewerActions>((set, get) => 
         currentIndex: actualIndex,
       });
     }
+  },
+
+  // ズームイン（+20%、最大400%）
+  zoomIn: () => {
+    const { zoomLevel } = get();
+    const next = Math.min(Math.round((zoomLevel + 0.2) * 10) / 10, 4.0);
+    set({ zoomLevel: next });
+  },
+
+  // ズームアウト（-20%、最小100%=フィット）
+  zoomOut: () => {
+    const { zoomLevel } = get();
+    const next = Math.max(Math.round((zoomLevel - 0.2) * 10) / 10, 1.0);
+    set({ zoomLevel: next });
+  },
+
+  // ズームリセット（フィット表示に戻す）
+  resetZoom: () => {
+    set({ zoomLevel: 1.0 });
   },
 
   // リセット
@@ -299,6 +325,9 @@ export const useViewerActions = () => {
       toggleShuffle: state.toggleShuffle,
       setHFlip: state.setHFlip,
       setShuffle: state.setShuffle,
+      zoomIn: state.zoomIn,
+      zoomOut: state.zoomOut,
+      resetZoom: state.resetZoom,
       reset: state.reset,
       clearError: state.clearError,
     }))

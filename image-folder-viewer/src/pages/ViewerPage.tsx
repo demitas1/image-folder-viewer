@@ -4,7 +4,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useCallback, useState, useMemo, useRef } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Spinner } from "../components/common/Spinner";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getCurrentWindow, currentMonitor, LogicalSize } from "@tauri-apps/api/window";
 import { ImageDisplay } from "../components/viewer/ImageDisplay";
 import {
   ContextMenu,
@@ -34,10 +34,11 @@ export function ViewerPage() {
   const currentImage = useCurrentImage();
   const { currentIndex, totalImages, actualIndex } = useNavigationState();
   const { hFlipEnabled, shuffleEnabled } = useViewerOptions();
-  const { loadImages, goToNext, goToPrev, toggleHFlip, toggleShuffle, reset } =
+  const { loadImages, goToNext, goToPrev, toggleHFlip, toggleShuffle, zoomIn, zoomOut, resetZoom, reset } =
     useViewerActions();
   const isLoading = useViewerStore((state) => state.isLoading);
   const error = useViewerStore((state) => state.error);
+  const zoomLevel = useViewerStore((state) => state.zoomLevel);
 
   // コンテキストメニュー状態
   const [contextMenu, setContextMenu] = useState<{
@@ -47,6 +48,82 @@ export function ViewerPage() {
 
   // 初回読み込みスキップ用フラグ
   const isInitialLoadRef = useRef(true);
+
+  // ズーム用ref
+  const mainRef = useRef<HTMLElement>(null);
+  const fitImageSizeRef = useRef<{ w: number; h: number } | null>(null);
+  const baseWindowSizeRef = useRef<{ w: number; h: number } | null>(null);
+  const baseChromeHeightRef = useRef<number>(0);
+
+  // 画像読み込み完了時にフィットサイズとウィンドウ基準サイズを記録
+  const handleImageLoad = useCallback(async (fitWidth: number, fitHeight: number) => {
+    fitImageSizeRef.current = { w: fitWidth, h: fitHeight };
+
+    // ズーム1.0時のウィンドウサイズを基準として保存
+    if (!baseWindowSizeRef.current) {
+      try {
+        const win = getCurrentWindow();
+        const innerSize = await win.innerSize();
+        const scaleFactor = await win.scaleFactor();
+        const logicalW = innerSize.width / scaleFactor;
+        const logicalH = innerSize.height / scaleFactor;
+        baseWindowSizeRef.current = { w: logicalW, h: logicalH };
+
+        // ヘッダー+フッター分の高さ（chrome部分）
+        const mainEl = mainRef.current;
+        if (mainEl) {
+          baseChromeHeightRef.current = logicalH - mainEl.clientHeight;
+        }
+      } catch (e) {
+        console.error("ウィンドウサイズ取得に失敗:", e);
+      }
+    }
+  }, []);
+
+  // ズームレベル変化時にウィンドウをリサイズ
+  useEffect(() => {
+    const fitSize = fitImageSizeRef.current;
+    const baseSize = baseWindowSizeRef.current;
+    if (!fitSize || !baseSize) return;
+
+    const resizeWindow = async () => {
+      try {
+        const win = getCurrentWindow();
+
+        if (zoomLevel <= 1.0) {
+          // フィット表示に戻す
+          await win.setSize(new LogicalSize(baseSize.w, baseSize.h));
+          return;
+        }
+
+        // ズーム時のサイズ計算
+        const chromeH = baseChromeHeightRef.current;
+        const desiredW = fitSize.w * zoomLevel;
+        const desiredH = fitSize.h * zoomLevel + chromeH;
+
+        // モニター作業領域で上限制限
+        const monitor = await currentMonitor();
+        const maxW = monitor ? monitor.size.width / (monitor.scaleFactor ?? 1) : desiredW;
+        const maxH = monitor ? monitor.size.height / (monitor.scaleFactor ?? 1) : desiredH;
+
+        const cappedW = Math.round(Math.min(desiredW, maxW));
+        const cappedH = Math.round(Math.min(desiredH, maxH));
+
+        await win.setSize(new LogicalSize(cappedW, cappedH));
+      } catch (e) {
+        console.error("ウィンドウリサイズに失敗:", e);
+      }
+    };
+
+    resizeWindow();
+  }, [zoomLevel]);
+
+  // 画像切替時にズーム基準サイズをリセット
+  useEffect(() => {
+    fitImageSizeRef.current = null;
+    baseWindowSizeRef.current = null;
+    baseChromeHeightRef.current = 0;
+  }, [currentImage?.path]);
 
   // ビューア状態をappStateに保存し、プロファイルをディスクに書き出す
   const saveViewerState = useCallback(() => {
@@ -166,6 +243,16 @@ export function ViewerPage() {
         case "R":
           toggleShuffle();
           break;
+        case "+":
+        case "=":
+          zoomIn();
+          break;
+        case "-":
+          zoomOut();
+          break;
+        case "0":
+          resetZoom();
+          break;
         case " ":
           e.preventDefault();
           // 画面中央にコンテキストメニューを表示
@@ -186,6 +273,9 @@ export function ViewerPage() {
     goToPrev,
     toggleHFlip,
     toggleShuffle,
+    zoomIn,
+    zoomOut,
+    resetZoom,
   ]);
 
   // 右クリックでコンテキストメニュー表示
@@ -246,6 +336,25 @@ export function ViewerPage() {
     });
 
     items.push({
+      label: "ズームイン",
+      shortcut: "+",
+      separator: true,
+      onClick: zoomIn,
+    });
+    items.push({
+      label: "ズームアウト",
+      shortcut: "-",
+      onClick: zoomOut,
+    });
+    if (zoomLevel > 1.0) {
+      items.push({
+        label: "ズームリセット",
+        shortcut: "0",
+        onClick: resetZoom,
+      });
+    }
+
+    items.push({
       label: "インデックスに戻る",
       shortcut: "ESC",
       separator: true,
@@ -261,7 +370,7 @@ export function ViewerPage() {
     });
 
     return items;
-  }, [imagePath, hFlipEnabled, shuffleEnabled, toggleHFlip, toggleShuffle, handleBack]);
+  }, [imagePath, hFlipEnabled, shuffleEnabled, zoomLevel, toggleHFlip, toggleShuffle, zoomIn, zoomOut, resetZoom, handleBack]);
 
   // カードが見つからない場合
   if (!card) {
@@ -291,6 +400,11 @@ export function ViewerPage() {
           </span>
         </div>
         <div className="flex items-center space-x-2 shrink-0">
+          {zoomLevel > 1.0 && (
+            <span className="text-xs text-yellow-400 font-mono">
+              {Math.round(zoomLevel * 100)}%
+            </span>
+          )}
           <button
             onClick={toggleHFlip}
             className={`text-xs px-2 py-0.5 rounded transition ${
@@ -317,7 +431,7 @@ export function ViewerPage() {
       </header>
 
       {/* 画像表示エリア */}
-      <main className="flex-1 flex items-center justify-center relative overflow-hidden">
+      <main ref={mainRef} className="flex-1 flex items-center justify-center relative overflow-hidden">
         {isLoading && (
           <Spinner size="lg" text="読み込み中..." />
         )}
@@ -338,7 +452,9 @@ export function ViewerPage() {
           <ImageDisplay
             imagePath={currentImage.path}
             hFlipEnabled={hFlipEnabled}
+            zoomLevel={zoomLevel}
             onClick={handleImageClick}
+            onImageLoad={handleImageLoad}
           />
         )}
       </main>
@@ -351,7 +467,7 @@ export function ViewerPage() {
             {shuffleEnabled && " (シャッフル)"}
           </span>
           <span className="text-gray-600">
-            ←→: ナビゲーション | H: 反転 | R: シャッフル | Space: メニュー |
+            ←→: ナビゲーション | H: 反転 | R: シャッフル | +/-: ズーム | Space: メニュー |
             ESC: 戻る
           </span>
         </footer>
