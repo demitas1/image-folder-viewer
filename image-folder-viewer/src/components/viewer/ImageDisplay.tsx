@@ -67,9 +67,11 @@ export function ImageDisplay({
 
   return (
     <div
-      className={`flex-1 flex items-center justify-center cursor-pointer ${
-        isZoomed ? "overflow-auto" : "overflow-hidden"
-      }`}
+      className={
+        isZoomed
+          ? "absolute inset-0 overflow-auto cursor-pointer"
+          : "flex-1 flex items-center justify-center cursor-pointer overflow-hidden"
+      }
       onClick={onClick}
     >
       {/* 読み込み中 */}
