@@ -1096,7 +1096,7 @@ src-tauri/src/commands/
 | IndexPageのキーボードショートカット不足 | Ctrl+O, Ctrl+Shift+S 未実装 | プロファイルを開く、別名保存のショートカット追加 | `IndexPage.tsx` |
 | IndexPageのショートカットヘルプ | 表示なし | フッターまたはヘルプパネルで表示 | `IndexPage.tsx` |
 | ローディング表示の統一 | IndexPageはローディング表示なし。ViewerPage・CardItemはテキストのみ | 共通のスピナーコンポーネントを作成し、プロファイル読み込み・保存・画像読み込み・サムネイル取得中に回転アイコンを表示 | 新規 `Spinner.tsx`, `IndexPage.tsx`, `ViewerPage.tsx`, `CardItem.tsx`, `ProfileSelector.tsx` |
-| ビューアのズーム機能 | 未実装（ウィンドウサイズにフィット表示のみ） | `+`/`=`キーで20%ズームアップ、`-`キーで20%ズームダウン。ズーム時にウィンドウサイズを画像のアスペクト比を維持したまま連動リサイズ。画像切り替え時はウィンドウサイズ基準でズーム率を再計算（フィット表示に戻る） | `ViewerPage.tsx`, `ImageDisplay.tsx`, `viewerStore.ts` |
+| ビューアのズーム機能 | 実装済み | `+`/`=`キーで20%ズームイン、`-`キーで20%ズームアウト、`0`キーでリセット。ウィンドウサイズ連動リサイズ（モニター上限あり）。はみ出し時スクロールバー表示。詳細は [design-zoom.md](./design-zoom.md) を参照 | `ViewerPage.tsx`, `ImageDisplay.tsx`, `viewerStore.ts` |
 
 #### 5.4 状態保存の拡張
 
