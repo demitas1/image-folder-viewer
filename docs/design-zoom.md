@@ -2,30 +2,98 @@
 
 ## 概要
 
-ViewerPage で画像をフィット表示（100%）から最大400%まで拡大表示する機能。ズーム操作に連動してウィンドウサイズをリサイズし、画像がウィンドウに収まらない場合はスクロールバーを表示する。
+ViewerPage で画像の拡大・縮小表示を行う機能。ズーム率は元画像に対するスケールとして定義し、ウィンドウサイズと常に連動する。ウィンドウは画像のアスペクト比を維持し、ズーム操作・手動リサイズの両方でズーム率が更新される。
 
-## 仕様
+## ズーム率の定義
+
+```
+ズーム率 = 表示サイズ / 元画像サイズ
+```
+
+例: 2000×1500px の画像を 800×600px で表示 → ズーム率 40%
 
 | 項目 | 値 |
 |------|-----|
-| ズーム基準 | フィット表示 = 100%（`zoomLevel: 1.0`） |
-| ズーム単位 | +20%加算（100→120→140→...→400） |
-| 最小倍率 | 100%（フィット表示） |
-| 最大倍率 | 400% |
-| 画像切替時 | フィット表示にリセット、ウィンドウサイズも復元 |
-| ウィンドウ連動 | ズームに合わせてリサイズ。モニターサイズの上限で停止 |
-| はみ出し時 | `overflow-auto` でスクロールバー表示 |
-| 状態保存 | しない（画像切替・ビューア終了でリセット） |
+| 最大ズーム率 | 400% |
+| 最小ズーム率 | ウィンドウ最小サイズ（200px）でのフィットズーム率 |
+| 端数処理 | 1%未満を四捨五入 |
+| ウィンドウ最小サイズ | 縦・横いずれも 200px 未満にならない |
 
-## 操作方法
+## 動作仕様
 
-### キーボードショートカット
+### 初期表示
+
+ViewerPage に遷移した時、現在のウィンドウサイズを基準にフィット表示する。
+
+```
+displayW = ウィンドウ幅
+displayH = ウィンドウ高 - chrome高（ヘッダー+フッター）
+fitZoom = min(displayW / imageW, displayH / imageH)
+zoomLevel = min(round(fitZoom * 100) / 100, 4.0)
+```
+
+- 大きい画像: 縮小してフィット（例: 4000px → 40%）
+- 小さい画像: 拡大してフィット（例: 200px → 400%）、ただし 400% を超えない
+- 400% でもウィンドウより小さい場合: 400% で中央に表示
+
+### キーボードズーム操作
 
 | キー | 動作 |
 |------|------|
-| `+` / `=` | ズームイン（+20%） |
-| `-` | ズームアウト（-20%） |
-| `0` | ズームリセット（100%に戻す） |
+| `+` / `=` | ズームイン（×1.2） |
+| `-` | ズームアウト（×0.8） |
+| `0` | フィット表示にリセット |
+
+#### キーボードズームのフロー
+
+```
+1. 希望ズーム率 = round(現在のズーム率 × 倍率)  ← 1%未満四捨五入
+2. クランプ: [最小ズーム率, 400%]
+   - ウィンドウがいずれかの辺で200pxに達している場合、ズームアウト無効
+3. 希望ウィンドウサイズを計算:
+   windowW = imageW × 希望ズーム率
+   windowH = imageH × 希望ズーム率 + chrome高
+4. ウィンドウサイズをクランプ:
+   下限: 各辺 200px（Tauri ウィンドウ制約）
+   上限: デスクトップサイズ
+5. 上限に達した場合のみ:
+   → クランプ後のウィンドウサイズからズーム率を再計算:
+     zoomLevel = round(min(cappedW / imageW, cappedH / imageH) * 100) / 100
+6. ウィンドウをリサイズし、ズーム率を確定
+7. このリサイズで発生する resize イベントは無視（フラグ制御）
+```
+
+### ユーザーによるウィンドウ手動リサイズ
+
+ユーザーがウィンドウサイズを手動で変更した場合:
+
+1. 新しいウィンドウサイズからフィットするズーム率を計算
+2. 現在のズーム率として更新
+3. 画像は元のアスペクト比を維持し、ウィンドウ内で中央に表示
+
+ウィンドウの最小サイズ（200px）は Tauri のウィンドウ制約で保証する。
+
+### ウィンドウのアスペクト比
+
+- **キーボードズーム時**: ウィンドウは常に画像のアスペクト比に合わせてリサイズされる（余白なし、chrome 高を加算）
+- **ユーザー手動リサイズ時**: 任意のアスペクト比を許容。画像は `object-contain` 相当で中央に表示（上下または左右に余白が発生しうる）
+- **手動リサイズ後のキーボードズーム**: 画像のアスペクト比に復帰する
+
+### 画像切替
+
+- ウィンドウサイズは変更しない
+- 現在のウィンドウサイズを基準にフィット表示し、ズーム率を再計算
+- 新しい画像のアスペクト比が異なる場合、中央にフィット表示（余白あり）
+
+### 小さい画像の扱い
+
+元画像がウィンドウ表示領域より小さい場合:
+
+- 初期表示: 拡大してフィット（最大 400%）
+- 400% でもウィンドウ表示領域より小さい場合: 400% のサイズで中央に表示
+- ズームアウト: ウィンドウが最小サイズ（200px）に達している場合、ズームアウト無効
+
+## 操作UI
 
 ### コンテキストメニュー
 
@@ -33,11 +101,11 @@ ViewerPage で画像をフィット表示（100%）から最大400%まで拡大�
 
 - ズームイン（+）
 - ズームアウト（-）
-- ズームリセット（0） ※ ズーム中のみ表示
+- ズームリセット（0）
 
 ### ヘッダー表示
 
-100%以外の時、ヘッダー右側にズーム倍率（例: `120%`）を黄色テキストで表示。
+ヘッダー右側にズーム倍率（例: `40%`、`120%`）を常に表示。
 
 ### フッター表示
 
@@ -45,132 +113,62 @@ ViewerPage で画像をフィット表示（100%）から最大400%まで拡大�
 
 ## 内部設計
 
-### 表示モード（isZoomed）
-
-ImageDisplay 内で `zoomLevel` から派生する判定フラグ:
-
-```typescript
-const isZoomed = zoomLevel > 1.0;
-```
-
-| `isZoomed` | 条件 | 表示モード |
-|------------|------|-----------|
-| `false` | `zoomLevel === 1.0` | フィット表示。画像をウィンドウに収まるよう `object-contain` で表示。クリックで次の画像。 |
-| `true` | `zoomLevel > 1.0`（1.2〜4.0） | ズーム表示。画像を `fitSize * zoomLevel` の明示サイズで表示。はみ出し時スクロール。クリックで次の画像。 |
-
-`zoomLevel` の最小値は 1.0（`zoomOut` で下限制限）のため、1.0 未満にはならない。
-
-このフラグにより以下の動作が切り替わる:
-- **コンテナレイアウト**: フィット時は `flex items-center justify-center`、ズーム時は `absolute inset-0 overflow-auto`
-- **img 要素のスタイル**: フィット時は `max-w-full max-h-full object-contain`、ズーム時は明示的な width/height
-- **ウィンドウリサイズ**: ズーム時のみ実行（フィット時は baseWindowSize に復元）
-- **ヘッダー倍率表示**: ズーム時のみ表示
-- **コンテキストメニュー「ズームリセット」**: ズーム時のみ表示
-
 ### 状態管理（viewerStore.ts）
 
 ```
 ViewerState:
-  zoomLevel: number  // 1.0〜4.0、初期値 1.0
+  zoomLevel: number       // 元画像に対するスケール（0.01〜4.0）
+  originalImageSize: { w: number, h: number } | null  // 元画像のピクセルサイズ
 
 ViewerActions:
-  zoomIn()     // zoomLevel = min(zoomLevel + 0.2, 4.0)
-  zoomOut()    // zoomLevel = max(zoomLevel - 0.2, 1.0)
-  resetZoom()  // zoomLevel = 1.0
+  zoomIn()       // zoomLevel = min(round(zoomLevel * 1.2), 4.0)
+  zoomOut()      // zoomLevel = max(round(zoomLevel * 0.8), 最小ズーム率)
+  resetZoom()    // 現在のウィンドウサイズからフィットズーム率を再計算
+  setZoomLevel(level)  // 直接設定（手動リサイズ時に使用）
 ```
 
-- `goToNext` / `goToPrev` / `goToIndex` 実行時に `zoomLevel` を 1.0 にリセット
-- `reset` 時に initialState（`zoomLevel: 1.0`）に戻る
+- `goToNext` / `goToPrev` / `goToIndex` 実行時: ズーム率はリセットしない（画像切替後にフィット再計算で更新）
+- `reset` 時: initialState に戻る
 
-### 基準値の管理（ViewerPage refs）
+### ウィンドウリサイズ制御（ViewerPage）
 
-ViewerPage で以下の基準値を ref で管理（ストアには入れない）:
+| 値 | 取得元 |
+|----|-------|
+| 元画像サイズ | `img.naturalWidth` / `img.naturalHeight`（onLoad 時） |
+| chrome 高 | ウィンドウ高 − 表示領域高（`main` 要素の clientHeight） |
+| デスクトップサイズ | `currentMonitor()` API |
+| ウィンドウ最小サイズ | Tauri 設定で 200×200 を指定 |
 
-| ref | 用途 |
-|-----|------|
-| `fitImageSizeRef` | zoom 1.0 時の画像表示サイズ（px） |
-| `baseWindowSizeRef` | zoom 1.0 時のウィンドウ内部サイズ（logical px） |
-| `baseChromeHeightRef` | ヘッダー+フッターの高さ（logical px） |
-| `mainRef` | `<main>` 要素への参照（chrome高さ計測用） |
+#### プログラムリサイズ vs ユーザーリサイズの区別
 
-これらは `handleImageLoad` コールバック（ImageDisplay の `onLoad` 時）で初回のみ記録し、画像切替時（`currentImage.path` 変化時）にリセットする。
-
-### フィットサイズの取得
-
-ImageDisplay コンポーネントの `onLoad` イベントで `img.clientWidth` / `img.clientHeight` を読み取り、`onImageLoad` コールバック経由で ViewerPage に伝達する。これが `fitImageSize`（zoom 1.0 時の画像ピクセルサイズ）となる。
-
-### ウィンドウリサイズの流れ
-
-`zoomLevel` の変化を `useEffect` で監視:
+キーボードズームによる `setSize()` 呼び出しは resize イベントを発生させる。ユーザー手動リサイズとの区別のため、プログラムリサイズ中はフラグを立てて resize イベントハンドラ内でのズーム率再計算をスキップする。
 
 ```
-zoomLevel変化時:
-  fitSize, baseSize が未取得なら何もしない
-
-  isZoomed = false (zoomLevel <= 1.0):
-    → setSize(baseWindowSize) でフィット時のサイズに復元
-
-  isZoomed = true (zoomLevel > 1.0):
-    1. desiredW = fitImageSize.w * zoomLevel
-    2. desiredH = fitImageSize.h * zoomLevel + chromeHeight
-    3. monitor = await currentMonitor()
-    4. maxW = monitor.size.width / scaleFactor
-    5. maxH = monitor.size.height / scaleFactor
-    6. cappedW = min(desiredW, maxW)
-    7. cappedH = min(desiredH, maxH)
-    8. await setSize(LogicalSize(cappedW, cappedH))
+isResizingProgrammatically = true
+await window.setSize(...)
+isResizingProgrammatically = false
 ```
 
-ウィンドウがモニターサイズ上限に達した場合、画像はウィンドウからはみ出す。この時 ImageDisplay の `overflow-auto`（`isZoomed: true` 時のみ有効）によりスクロールバーが表示される。
+### 画像表示（ImageDisplay.tsx）
 
-### ユーザーによるウィンドウ手動リサイズ時の動作
+表示サイズは常に `元画像サイズ × ズーム率` で計算する。
 
-基準値 ref（`fitImageSizeRef`, `baseWindowSizeRef`, `baseChromeHeightRef`）は画像の `onLoad` 時に一度だけ記録され、ユーザーのウィンドウ手動リサイズでは更新されない。このため以下の動作になる。
+```
+displayW = originalW × zoomLevel
+displayH = originalH × zoomLevel
+```
 
-#### フィット表示中（isZoomed = false）に手動リサイズ
+- 画像がコンテナより小さい場合: 中央に配置
+- 画像がコンテナより大きい場合: `overflow-auto`（現仕様では発生しないが実装を残す）
+- H-Flip: `transform: scaleX(-1)` で適用（ズームと干渉しない）
 
-- 画像は `object-contain` により新しいウィンドウサイズに自動再フィットする（表示上は問題なし）
-- `fitImageSizeRef` は更新されない（画像ロード時の値のまま）
-- `baseWindowSizeRef` は更新されない（画像ロード時の値のまま）
-- その後ズーム操作を行うと、**手動リサイズ前の fitSize を基準**にズーム倍率が計算される
-- `resetZoom`（0キー）を押すと、**手動リサイズ前のウィンドウサイズに復元**される（手動リサイズは上書きされる）
+### スクロールバー
 
-#### ズーム中（isZoomed = true）に手動リサイズ
-
-- 画像サイズは変わらない（明示的な width/height 指定のため）
-- コンテナは `absolute inset-0` でウィンドウに追従するため、スクロール領域が変わる
-- 基準値 ref は更新されない
-- さらにズーム操作を行うと、元の fitSize 基準でウィンドウサイズが再計算される（手動リサイズは上書きされる）
-- `resetZoom` は手動リサイズを無視して `baseWindowSizeRef` に復元する
-
-#### 画像切替時のウィンドウサイズ復元
-
-画像切替（`goToNext` / `goToPrev`）時、`zoomLevel` と `currentIndex` が同時に更新される。React の effect 実行順序により:
-
-1. `zoomLevel` effect が先に実行 → 古い `baseWindowSizeRef` を使ってウィンドウを元のサイズに復元
-2. `currentImage.path` effect が実行 → 全 ref をリセット（null）
-3. 新画像の `onLoad` → 復元後の現在のウィンドウサイズで新しい基準値を記録
-
-このため、ズーム中に画像を切り替えるとウィンドウはズーム前のサイズに正しく復元される。ただし、フィット表示中に手動リサイズした後に画像を切り替えた場合は、ref が更新されていないため復元は発生せず、手動リサイズ後のサイズがそのまま新しい基準値として記録される。
-
-### 画像表示の切り替え（ImageDisplay.tsx）
-
-`isZoomed` の値によりコンテナと img 要素のスタイルを切り替える:
-
-| `isZoomed` | コンテナ | img要素 |
-|------------|---------|---------|
-| `false` | `flex-1 flex items-center justify-center overflow-hidden` | `max-w-full max-h-full object-contain` |
-| `true` | `absolute inset-0 overflow-auto` | `width: fitW*zoom, height: fitH*zoom`（明示指定） |
-
-**`isZoomed: false`（フィット表示）**: flex センタリングで画像をコンテナ中央に配置。`object-contain` でアスペクト比を維持しつつコンテナに収める。
-
-**`isZoomed: true`（ズーム表示）**: `absolute inset-0` でコンテナを `<main>` のサイズに固定し、`overflow-auto` でスクロールバーを表示する。`absolute inset-0` を使う理由は、親の `<main>` が flex レイアウトのため `flex-1` だとコンテナの高さがコンテンツ（画像）サイズに追従してしまい、`overflow-auto` が機能しないため。
-
-H-Flip は両モード共通で `transform: scaleX(-1)` を適用（ズームと干渉しない）。
+新仕様ではズーム率がウィンドウサイズと常に連動するため、画像がウィンドウからはみ出すケースは通常発生しない。ただし、将来の仕様変更を考慮して `overflow-auto` の実装は維持する。
 
 ### Tauri パーミッション
 
-`src-tauri/capabilities/default.json` に以下を追加:
+`src-tauri/capabilities/default.json` に以下を追加（追加済み）:
 
 ```json
 "core:window:allow-set-size",
@@ -179,11 +177,47 @@ H-Flip は両モード共通で `transform: scaleX(-1)` を適用（ズームと
 "core:window:allow-current-monitor"
 ```
 
+追加で必要になる可能性:
+
+```json
+"core:window:allow-set-min-size"
+```
+
+### Tauri ウィンドウ最小サイズ設定
+
+`tauri.conf.json` または起動時の API で最小サイズを設定:
+
+```json
+{
+  "windows": [{
+    "minWidth": 200,
+    "minHeight": 200
+  }]
+}
+```
+
+または Rust 側 / フロントエンド API での設定。
+
 ## 変更対象ファイル
 
 | ファイル | 変更内容 |
 |---------|---------|
-| `src/store/viewerStore.ts` | `zoomLevel` 状態、`zoomIn`/`zoomOut`/`resetZoom` アクション |
-| `src/components/viewer/ImageDisplay.tsx` | `zoomLevel`/`onImageLoad` props、ズーム時レイアウト切替 |
-| `src/pages/ViewerPage.tsx` | キーボードショートカット、ウィンドウリサイズ、基準値管理、UI表示 |
-| `src-tauri/capabilities/default.json` | ウィンドウ操作パーミッション追加 |
+| `src/store/viewerStore.ts` | `zoomLevel` の意味変更（フィット基準→元画像基準）、×1.2/×0.8 操作、`originalImageSize` 追加 |
+| `src/components/viewer/ImageDisplay.tsx` | 表示サイズを `originalSize × zoomLevel` で常に計算、元画像サイズ通知 |
+| `src/pages/ViewerPage.tsx` | ウィンドウリサイズ制御、resize イベント監視、フィットズーム計算、フラグ制御 |
+| `src-tauri/capabilities/default.json` | `allow-set-min-size` 追加（必要な場合） |
+| `src-tauri/tauri.conf.json` | ウィンドウ最小サイズ設定 |
+
+## 現行実装からの主な変更点
+
+| 項目 | 現行 | 新仕様 |
+|------|------|--------|
+| ズーム率の基準 | フィット表示 = 1.0 | 元画像サイズ = 1.0（100%） |
+| ズーム操作 | +0.2 / -0.2（加算） | ×1.2 / ×0.8（乗算） |
+| ウィンドウリサイズ | ズームイン時のみ拡大 | 双方向連動（ズーム↔ウィンドウ） |
+| 手動リサイズ | ズーム率に反映されない | ズーム率を再計算して更新 |
+| 画像切替 | ウィンドウをズーム前のサイズに復元 | ウィンドウサイズ維持、ズーム率を再計算 |
+| スクロールバー | ウィンドウ上限時に表示 | 通常は発生しない（実装は残す） |
+| 最小ウィンドウ | 制約なし | 200×200px（Tauri 設定） |
+| 小さい画像 | object-contain（拡大なし） | 拡大してフィット（最大 400%） |
+| ヘッダー倍率表示 | ズーム中のみ | 常に表示 |
