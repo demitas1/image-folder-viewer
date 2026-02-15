@@ -121,12 +121,13 @@ ViewerState:
   originalImageSize: { w: number, h: number } | null  // 元画像のピクセルサイズ
 
 ViewerActions:
-  zoomIn()       // zoomLevel = min(round(zoomLevel * 1.2), 4.0)
-  zoomOut()      // zoomLevel = max(round(zoomLevel * 0.8), 最小ズーム率)
-  resetZoom()    // 現在のウィンドウサイズからフィットズーム率を再計算
-  setZoomLevel(level)  // 直接設定（手動リサイズ時に使用）
+  zoomIn()                    // zoomLevel = min(round(zoomLevel * 1.2 * 100) / 100, 4.0)
+  zoomOut()                   // zoomLevel = max(round(zoomLevel * 0.8 * 100) / 100, 0.01)
+  setZoomLevel(level)         // 直接設定（フィット計算・手動リサイズ時に使用）
+  setOriginalImageSize(size)  // 元画像サイズを設定（onLoad 時）
 ```
 
+- `resetZoom` は store から**削除**し、ViewerPage のローカルハンドラ `handleResetZoom` として実装する。理由: 現在のウィンドウサイズを Tauri API で取得する必要があり、store 内で完結できないため。
 - `goToNext` / `goToPrev` / `goToIndex` 実行時: ズーム率はリセットしない（画像切替後にフィット再計算で更新）
 - `reset` 時: initialState に戻る
 
@@ -134,22 +135,56 @@ ViewerActions:
 
 | 値 | 取得元 |
 |----|-------|
-| 元画像サイズ | `img.naturalWidth` / `img.naturalHeight`（onLoad 時） |
-| chrome 高 | ウィンドウ高 − 表示領域高（`main` 要素の clientHeight） |
+| 元画像サイズ | `img.naturalWidth` / `img.naturalHeight`（onLoad 時、viewerStore に保存） |
+| chrome 高 | ウィンドウ高 − 表示領域高（`main` 要素の clientHeight、`chromeHeightRef` に保存） |
 | デスクトップサイズ | `currentMonitor()` API |
-| ウィンドウ最小サイズ | Tauri 設定で 200×200 を指定 |
+| ウィンドウ最小サイズ | Tauri 設定で 200×200 を指定（`tauri.conf.json`） |
+
+#### ref 構成
+
+| ref | 用途 |
+|-----|------|
+| `mainRef` | 表示領域の DOM 要素（chrome 高の計算に使用） |
+| `isResizingProgrammaticallyRef` | プログラムリサイズ中フラグ |
+| `chromeHeightRef` | ヘッダー+フッターの高さ（画像 onLoad 時に計測） |
+
+※ 現行の `fitImageSizeRef`、`baseWindowSizeRef`、`baseChromeHeightRef` は削除。元画像サイズは viewerStore の `originalImageSize` に移行。
+
+#### ヘルパー関数
+
+```typescript
+function calculateFitZoom(displayW: number, displayH: number, imageW: number, imageH: number): number
+  // min(displayW/imageW, displayH/imageH) を計算し、1%未満を四捨五入、400%上限でクランプ
+```
+
+#### handleImageLoad
+
+1. `naturalWidth`/`naturalHeight` を受け取り `setOriginalImageSize()` で store に保存
+2. chrome 高を計測して `chromeHeightRef` に保存
+3. 現在のウィンドウサイズからフィットズーム率を計算 → `setZoomLevel()`
+4. ウィンドウリサイズはしない（画像切替仕様: ウィンドウ維持）
+
+#### キーボードズームハンドラ
+
+`handleZoomIn` / `handleZoomOut` / `handleResetZoom` を ViewerPage 内で定義。store の `zoomIn`/`zoomOut` は直接呼ばず、ウィンドウリサイズとセットで実行する。
 
 #### プログラムリサイズ vs ユーザーリサイズの区別
 
 キーボードズームによる `setSize()` 呼び出しは resize イベントを発生させる。ユーザー手動リサイズとの区別のため、プログラムリサイズ中はフラグを立てて resize イベントハンドラ内でのズーム率再計算をスキップする。
 
 ```
-isResizingProgrammatically = true
+isResizingProgrammaticallyRef.current = true
 await window.setSize(...)
-isResizingProgrammatically = false
+requestAnimationFrame(() => { isResizingProgrammaticallyRef.current = false })
 ```
 
+#### ウィンドウリサイズリスナー
+
+`getCurrentWindow().onResized()` で手動リサイズを監視。`isResizingProgrammaticallyRef` が false の場合のみ、新ウィンドウサイズからフィットズーム率を再計算して `setZoomLevel()` を呼ぶ。
+
 ### 画像表示（ImageDisplay.tsx）
+
+props に `originalImageSize: { w: number; h: number } | null` を追加。`onImageLoad` は `(naturalWidth, naturalHeight)` を通知するシグネチャに変更。
 
 表示サイズは常に `元画像サイズ × ズーム率` で計算する。
 
@@ -158,9 +193,12 @@ displayW = originalW × zoomLevel
 displayH = originalH × zoomLevel
 ```
 
+- `originalImageSize` 未取得時: `object-contain` でフォールバック表示
 - 画像がコンテナより小さい場合: 中央に配置
 - 画像がコンテナより大きい場合: `overflow-auto`（現仕様では発生しないが実装を残す）
+- コンテナ: 常に `flex items-center justify-center overflow-auto`（ズーム状態による切替なし）
 - H-Flip: `transform: scaleX(-1)` で適用（ズームと干渉しない）
+- 現行の `fitSize` state は削除（不要）
 
 ### スクロールバー
 

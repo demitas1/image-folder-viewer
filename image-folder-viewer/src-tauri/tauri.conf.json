@@ -14,7 +14,9 @@
       {
         "title": "image-folder-viewer",
         "width": 800,
-        "height": 600
+        "height": 600,
+        "minWidth": 200,
+        "minHeight": 200
       }
     ],
     "security": {
