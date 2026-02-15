@@ -8,20 +8,21 @@ interface ImageDisplayProps {
   imagePath: string;
   hFlipEnabled: boolean;
   zoomLevel: number;
+  originalImageSize: { w: number; h: number } | null;
   onClick: () => void;
-  onImageLoad?: (fitWidth: number, fitHeight: number) => void;
+  onImageLoad?: (naturalWidth: number, naturalHeight: number) => void;
 }
 
 export function ImageDisplay({
   imagePath,
   hFlipEnabled,
   zoomLevel,
+  originalImageSize,
   onClick,
   onImageLoad,
 }: ImageDisplayProps) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
-  const [fitSize, setFitSize] = useState<{ w: number; h: number } | null>(null);
   const imgRef = useRef<HTMLImageElement>(null);
 
   // 画像読み込み完了
@@ -29,13 +30,10 @@ export function ImageDisplay({
     setIsLoaded(true);
     setHasError(false);
 
-    // フィットサイズを記録（object-containで表示された実際のサイズ）
+    // 元画像サイズを通知
     const img = imgRef.current;
     if (img) {
-      const fw = img.clientWidth;
-      const fh = img.clientHeight;
-      setFitSize({ w: fw, h: fh });
-      onImageLoad?.(fw, fh);
+      onImageLoad?.(img.naturalWidth, img.naturalHeight);
     }
   }, [onImageLoad]);
 
@@ -48,30 +46,35 @@ export function ImageDisplay({
   // ローカルファイルパスをWebView表示用URLに変換
   const imageUrl = convertFileSrc(imagePath);
 
-  const isZoomed = zoomLevel > 1.0;
+  // 表示サイズ: 元画像サイズ × ズーム率
+  const displaySize = originalImageSize
+    ? {
+        w: Math.round(originalImageSize.w * zoomLevel),
+        h: Math.round(originalImageSize.h * zoomLevel),
+      }
+    : null;
 
-  // ズーム時の表示サイズ
-  const zoomedStyle: React.CSSProperties | undefined =
-    isZoomed && fitSize
+  // スタイル計算
+  const imgStyle: React.CSSProperties = {
+    ...(displaySize
       ? {
-          width: fitSize.w * zoomLevel,
-          height: fitSize.h * zoomLevel,
+          width: displaySize.w,
+          height: displaySize.h,
           maxWidth: "none",
           maxHeight: "none",
-          objectFit: undefined,
-          transform: hFlipEnabled ? "scaleX(-1)" : undefined,
         }
       : {
-          transform: hFlipEnabled ? "scaleX(-1)" : undefined,
-        };
+          // originalImageSize 未取得時（初回 onLoad 前）は object-contain でフォールバック
+          maxWidth: "100%",
+          maxHeight: "100%",
+          objectFit: "contain" as const,
+        }),
+    transform: hFlipEnabled ? "scaleX(-1)" : undefined,
+  };
 
   return (
     <div
-      className={
-        isZoomed
-          ? "absolute inset-0 overflow-auto cursor-pointer"
-          : "flex-1 flex items-center justify-center cursor-pointer overflow-hidden"
-      }
+      className="flex-1 flex items-center justify-center cursor-pointer overflow-auto"
       onClick={onClick}
     >
       {/* 読み込み中 */}
@@ -96,12 +99,8 @@ export function ImageDisplay({
           key={imagePath}
           src={imageUrl}
           alt=""
-          className={
-            isZoomed
-              ? "select-none"
-              : "max-w-full max-h-full object-contain select-none"
-          }
-          style={zoomedStyle}
+          className="select-none"
+          style={imgStyle}
           onLoad={handleLoad}
           onError={handleError}
           draggable={false}

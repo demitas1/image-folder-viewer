@@ -21,6 +21,13 @@ import {
 } from "../store/viewerStore";
 import { copyImageToClipboard, copyTextToClipboard } from "../api/tauri";
 
+// フィットズーム率を計算
+function calculateFitZoom(displayW: number, displayH: number, imageW: number, imageH: number): number {
+  if (imageW <= 0 || imageH <= 0) return 1.0;
+  const fit = Math.min(displayW / imageW, displayH / imageH);
+  return Math.min(Math.round(fit * 100) / 100, 4.0);
+}
+
 export function ViewerPage() {
   const { cardId } = useParams<{ cardId: string }>();
   const navigate = useNavigate();
@@ -34,11 +41,12 @@ export function ViewerPage() {
   const currentImage = useCurrentImage();
   const { currentIndex, totalImages, actualIndex } = useNavigationState();
   const { hFlipEnabled, shuffleEnabled } = useViewerOptions();
-  const { loadImages, goToNext, goToPrev, toggleHFlip, toggleShuffle, zoomIn, zoomOut, resetZoom, reset } =
+  const { loadImages, goToNext, goToPrev, toggleHFlip, toggleShuffle, setZoomLevel, setOriginalImageSize, reset } =
     useViewerActions();
   const isLoading = useViewerStore((state) => state.isLoading);
   const error = useViewerStore((state) => state.error);
   const zoomLevel = useViewerStore((state) => state.zoomLevel);
+  const originalImageSize = useViewerStore((state) => state.originalImageSize);
 
   // コンテキストメニュー状態
   const [contextMenu, setContextMenu] = useState<{
@@ -51,79 +59,200 @@ export function ViewerPage() {
 
   // ズーム用ref
   const mainRef = useRef<HTMLElement>(null);
-  const fitImageSizeRef = useRef<{ w: number; h: number } | null>(null);
-  const baseWindowSizeRef = useRef<{ w: number; h: number } | null>(null);
-  const baseChromeHeightRef = useRef<number>(0);
+  const isResizingProgrammaticallyRef = useRef(false);
+  const chromeHeightRef = useRef<number>(0);
 
-  // 画像読み込み完了時にフィットサイズとウィンドウ基準サイズを記録
-  const handleImageLoad = useCallback(async (fitWidth: number, fitHeight: number) => {
-    fitImageSizeRef.current = { w: fitWidth, h: fitHeight };
+  // 画像読み込み完了時に元画像サイズを記録し、フィットズーム率を計算
+  const handleImageLoad = useCallback(async (naturalWidth: number, naturalHeight: number) => {
+    // 元画像サイズを store に保存
+    setOriginalImageSize({ w: naturalWidth, h: naturalHeight });
 
-    // ズーム1.0時のウィンドウサイズを基準として保存
-    if (!baseWindowSizeRef.current) {
-      try {
-        const win = getCurrentWindow();
-        const innerSize = await win.innerSize();
-        const scaleFactor = await win.scaleFactor();
-        const logicalW = innerSize.width / scaleFactor;
-        const logicalH = innerSize.height / scaleFactor;
-        baseWindowSizeRef.current = { w: logicalW, h: logicalH };
+    try {
+      const win = getCurrentWindow();
+      const innerSize = await win.innerSize();
+      const scaleFactor = await win.scaleFactor();
+      const logicalW = innerSize.width / scaleFactor;
+      const logicalH = innerSize.height / scaleFactor;
 
-        // ヘッダー+フッター分の高さ（chrome部分）
-        const mainEl = mainRef.current;
-        if (mainEl) {
-          baseChromeHeightRef.current = logicalH - mainEl.clientHeight;
-        }
-      } catch (e) {
-        console.error("ウィンドウサイズ取得に失敗:", e);
+      // chrome 高を計測して保存
+      const mainEl = mainRef.current;
+      if (mainEl) {
+        chromeHeightRef.current = logicalH - mainEl.clientHeight;
       }
+
+      // 表示領域サイズからフィットズーム率を計算
+      const displayW = mainEl ? mainEl.clientWidth : logicalW;
+      const displayH = mainEl ? mainEl.clientHeight : logicalH;
+      const fitZoom = calculateFitZoom(displayW, displayH, naturalWidth, naturalHeight);
+      setZoomLevel(fitZoom);
+    } catch (e) {
+      console.error("ウィンドウサイズ取得に失敗:", e);
     }
-  }, []);
+  }, [setOriginalImageSize, setZoomLevel]);
 
-  // ズームレベル変化時にウィンドウをリサイズ
+  // 画像切替時に元画像サイズをリセット
   useEffect(() => {
-    const fitSize = fitImageSizeRef.current;
-    const baseSize = baseWindowSizeRef.current;
-    if (!fitSize || !baseSize) return;
+    setOriginalImageSize(null);
+  }, [currentImage?.path, setOriginalImageSize]);
 
-    const resizeWindow = async () => {
-      try {
-        const win = getCurrentWindow();
+  // キーボードズームイン: ウィンドウリサイズ + ズーム率更新
+  const handleZoomIn = useCallback(async () => {
+    const imgSize = useViewerStore.getState().originalImageSize;
+    const currentZoom = useViewerStore.getState().zoomLevel;
+    if (!imgSize) return;
 
-        if (zoomLevel <= 1.0) {
-          // フィット表示に戻す
-          await win.setSize(new LogicalSize(baseSize.w, baseSize.h));
-          return;
-        }
+    // 希望ズーム率
+    const desiredZoom = Math.min(Math.round(currentZoom * 1.2 * 100) / 100, 4.0);
+    if (desiredZoom === currentZoom) return;
 
-        // ズーム時のサイズ計算
-        const chromeH = baseChromeHeightRef.current;
-        const desiredW = fitSize.w * zoomLevel;
-        const desiredH = fitSize.h * zoomLevel + chromeH;
+    try {
+      const win = getCurrentWindow();
+      const chromeH = chromeHeightRef.current;
 
-        // モニター作業領域で上限制限
-        const monitor = await currentMonitor();
-        const maxW = monitor ? monitor.size.width / (monitor.scaleFactor ?? 1) : desiredW;
-        const maxH = monitor ? monitor.size.height / (monitor.scaleFactor ?? 1) : desiredH;
+      // 希望ウィンドウサイズ
+      const desiredW = imgSize.w * desiredZoom;
+      const desiredH = imgSize.h * desiredZoom + chromeH;
 
-        const cappedW = Math.round(Math.min(desiredW, maxW));
-        const cappedH = Math.round(Math.min(desiredH, maxH));
+      // デスクトップサイズで上限制限
+      const monitor = await currentMonitor();
+      const scaleFactor = monitor?.scaleFactor ?? 1;
+      const maxW = monitor ? monitor.size.width / scaleFactor : desiredW;
+      const maxH = monitor ? monitor.size.height / scaleFactor : desiredH;
 
-        await win.setSize(new LogicalSize(cappedW, cappedH));
-      } catch (e) {
-        console.error("ウィンドウリサイズに失敗:", e);
+      const cappedW = Math.round(Math.min(desiredW, maxW));
+      const cappedH = Math.round(Math.min(desiredH, maxH));
+
+      // 上限に達した場合はズーム率を再計算
+      let newZoom = desiredZoom;
+      if (cappedW < desiredW || cappedH < desiredH) {
+        newZoom = calculateFitZoom(cappedW, cappedH - chromeH, imgSize.w, imgSize.h);
       }
+
+      // プログラムリサイズフラグを立ててリサイズ
+      isResizingProgrammaticallyRef.current = true;
+      await win.setSize(new LogicalSize(cappedW, cappedH));
+      requestAnimationFrame(() => {
+        isResizingProgrammaticallyRef.current = false;
+      });
+
+      setZoomLevel(newZoom);
+    } catch (e) {
+      console.error("ズームインに失敗:", e);
+    }
+  }, [setZoomLevel]);
+
+  // キーボードズームアウト: ウィンドウリサイズ + ズーム率更新
+  const handleZoomOut = useCallback(async () => {
+    const imgSize = useViewerStore.getState().originalImageSize;
+    const currentZoom = useViewerStore.getState().zoomLevel;
+    if (!imgSize) return;
+
+    try {
+      const win = getCurrentWindow();
+      const innerSize = await win.innerSize();
+      const scaleFactor = await win.scaleFactor();
+      const logicalW = innerSize.width / scaleFactor;
+      const logicalH = innerSize.height / scaleFactor;
+
+      // 現在のウィンドウがいずれかの辺で200pxに達していたらズームアウト無効
+      if (logicalW <= 200 || logicalH <= 200) return;
+
+      const chromeH = chromeHeightRef.current;
+
+      // 希望ズーム率
+      const desiredZoom = Math.max(Math.round(currentZoom * 0.8 * 100) / 100, 0.01);
+      if (desiredZoom === currentZoom) return;
+
+      // 希望ウィンドウサイズ
+      const desiredW = imgSize.w * desiredZoom;
+      const desiredH = imgSize.h * desiredZoom + chromeH;
+
+      // 最小サイズ（200px）でクランプ
+      const cappedW = Math.round(Math.max(desiredW, 200));
+      const cappedH = Math.round(Math.max(desiredH, 200));
+
+      // 下限に達した場合はズーム率を再計算
+      let newZoom = desiredZoom;
+      if (cappedW > desiredW || cappedH > desiredH) {
+        newZoom = calculateFitZoom(cappedW, cappedH - chromeH, imgSize.w, imgSize.h);
+      }
+
+      // プログラムリサイズフラグを立ててリサイズ
+      isResizingProgrammaticallyRef.current = true;
+      await win.setSize(new LogicalSize(cappedW, cappedH));
+      requestAnimationFrame(() => {
+        isResizingProgrammaticallyRef.current = false;
+      });
+
+      setZoomLevel(newZoom);
+    } catch (e) {
+      console.error("ズームアウトに失敗:", e);
+    }
+  }, [setZoomLevel]);
+
+  // ズームリセット: 現在のウィンドウサイズでフィットズームに戻る（ウィンドウリサイズなし）
+  const handleResetZoom = useCallback(async () => {
+    const imgSize = useViewerStore.getState().originalImageSize;
+    if (!imgSize) return;
+
+    try {
+      const win = getCurrentWindow();
+      const innerSize = await win.innerSize();
+      const scaleFactor = await win.scaleFactor();
+      const logicalH = innerSize.height / scaleFactor;
+
+      const mainEl = mainRef.current;
+      const displayW = mainEl ? mainEl.clientWidth : innerSize.width / scaleFactor;
+      const displayH = mainEl ? mainEl.clientHeight : logicalH - chromeHeightRef.current;
+
+      const fitZoom = calculateFitZoom(displayW, displayH, imgSize.w, imgSize.h);
+      setZoomLevel(fitZoom);
+    } catch (e) {
+      console.error("ズームリセットに失敗:", e);
+    }
+  }, [setZoomLevel]);
+
+  // ユーザーによるウィンドウ手動リサイズを監視
+  useEffect(() => {
+    let unlisten: (() => void) | null = null;
+
+    const setup = async () => {
+      const win = getCurrentWindow();
+      unlisten = await win.onResized(async () => {
+        // プログラムリサイズ中はスキップ
+        if (isResizingProgrammaticallyRef.current) return;
+
+        const imgSize = useViewerStore.getState().originalImageSize;
+        if (!imgSize) return;
+
+        try {
+          const innerSize = await win.innerSize();
+          const scaleFactor = await win.scaleFactor();
+          const logicalH = innerSize.height / scaleFactor;
+
+          const mainEl = mainRef.current;
+          // chrome 高を再計測
+          if (mainEl) {
+            chromeHeightRef.current = logicalH - mainEl.clientHeight;
+          }
+
+          const displayW = mainEl ? mainEl.clientWidth : innerSize.width / scaleFactor;
+          const displayH = mainEl ? mainEl.clientHeight : logicalH - chromeHeightRef.current;
+
+          const fitZoom = calculateFitZoom(displayW, displayH, imgSize.w, imgSize.h);
+          useViewerStore.getState().setZoomLevel(fitZoom);
+        } catch (e) {
+          console.error("リサイズ時ズーム再計算に失敗:", e);
+        }
+      });
     };
 
-    resizeWindow();
-  }, [zoomLevel]);
+    setup();
 
-  // 画像切替時にズーム基準サイズをリセット
-  useEffect(() => {
-    fitImageSizeRef.current = null;
-    baseWindowSizeRef.current = null;
-    baseChromeHeightRef.current = 0;
-  }, [currentImage?.path]);
+    return () => {
+      if (unlisten) unlisten();
+    };
+  }, []);
 
   // ビューア状態をappStateに保存し、プロファイルをディスクに書き出す
   const saveViewerState = useCallback(() => {
@@ -245,13 +374,13 @@ export function ViewerPage() {
           break;
         case "+":
         case "=":
-          zoomIn();
+          handleZoomIn();
           break;
         case "-":
-          zoomOut();
+          handleZoomOut();
           break;
         case "0":
-          resetZoom();
+          handleResetZoom();
           break;
         case " ":
           e.preventDefault();
@@ -273,9 +402,9 @@ export function ViewerPage() {
     goToPrev,
     toggleHFlip,
     toggleShuffle,
-    zoomIn,
-    zoomOut,
-    resetZoom,
+    handleZoomIn,
+    handleZoomOut,
+    handleResetZoom,
   ]);
 
   // 右クリックでコンテキストメニュー表示
@@ -339,20 +468,18 @@ export function ViewerPage() {
       label: "ズームイン",
       shortcut: "+",
       separator: true,
-      onClick: zoomIn,
+      onClick: handleZoomIn,
     });
     items.push({
       label: "ズームアウト",
       shortcut: "-",
-      onClick: zoomOut,
+      onClick: handleZoomOut,
     });
-    if (zoomLevel > 1.0) {
-      items.push({
-        label: "ズームリセット",
-        shortcut: "0",
-        onClick: resetZoom,
-      });
-    }
+    items.push({
+      label: "ズームリセット",
+      shortcut: "0",
+      onClick: handleResetZoom,
+    });
 
     items.push({
       label: "インデックスに戻る",
@@ -370,7 +497,7 @@ export function ViewerPage() {
     });
 
     return items;
-  }, [imagePath, hFlipEnabled, shuffleEnabled, zoomLevel, toggleHFlip, toggleShuffle, zoomIn, zoomOut, resetZoom, handleBack]);
+  }, [imagePath, hFlipEnabled, shuffleEnabled, toggleHFlip, toggleShuffle, handleZoomIn, handleZoomOut, handleResetZoom, handleBack]);
 
   // カードが見つからない場合
   if (!card) {
@@ -400,11 +527,9 @@ export function ViewerPage() {
           </span>
         </div>
         <div className="flex items-center space-x-2 shrink-0">
-          {zoomLevel > 1.0 && (
-            <span className="text-xs text-yellow-400 font-mono">
-              {Math.round(zoomLevel * 100)}%
-            </span>
-          )}
+          <span className="text-xs text-yellow-400 font-mono">
+            {Math.round(zoomLevel * 100)}%
+          </span>
           <button
             onClick={toggleHFlip}
             className={`text-xs px-2 py-0.5 rounded transition ${
@@ -453,6 +578,7 @@ export function ViewerPage() {
             imagePath={currentImage.path}
             hFlipEnabled={hFlipEnabled}
             zoomLevel={zoomLevel}
+            originalImageSize={originalImageSize}
             onClick={handleImageClick}
             onImageLoad={handleImageLoad}
           />

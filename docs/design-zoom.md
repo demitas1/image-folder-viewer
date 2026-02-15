@@ -40,11 +40,11 @@ zoomLevel = min(round(fitZoom * 100) / 100, 4.0)
 
 | キー | 動作 |
 |------|------|
-| `+` / `=` | ズームイン（×1.2） |
-| `-` | ズームアウト（×0.8） |
-| `0` | フィット表示にリセット |
+| `+` / `=` | ズームイン（×1.2）— ウィンドウを拡大 |
+| `-` | ズームアウト（×0.8）— ウィンドウを縮小 |
+| `0` | フィット表示にリセット — ウィンドウサイズは変更しない |
 
-#### キーボードズームのフロー
+#### ズームイン / ズームアウトのフロー
 
 ```
 1. 希望ズーム率 = round(現在のズーム率 × 倍率)  ← 1%未満四捨五入
@@ -56,12 +56,24 @@ zoomLevel = min(round(fitZoom * 100) / 100, 4.0)
 4. ウィンドウサイズをクランプ:
    下限: 各辺 200px（Tauri ウィンドウ制約）
    上限: デスクトップサイズ
-5. 上限に達した場合のみ:
+5. 上限/下限に達した場合:
    → クランプ後のウィンドウサイズからズーム率を再計算:
-     zoomLevel = round(min(cappedW / imageW, cappedH / imageH) * 100) / 100
-6. ウィンドウをリサイズし、ズーム率を確定
-7. このリサイズで発生する resize イベントは無視（フラグ制御）
+     zoomLevel = round(min(cappedW / imageW, (cappedH - chrome高) / imageH) * 100) / 100
+6. プログラムリサイズフラグを立ててウィンドウをリサイズ
+7. ズーム率を確定
+8. requestAnimationFrame でフラグを解除
 ```
+
+#### ズームリセットのフロー
+
+```
+1. 現在のウィンドウサイズから表示領域サイズを取得
+2. フィットズーム率を計算: min(displayW / imageW, displayH / imageH)
+3. setZoomLevel() でズーム率を更新
+4. ウィンドウリサイズはしない
+```
+
+ズームリセットは「現在のウィンドウサイズはそのまま維持し、そのサイズに画像がフィットするズーム率に戻す」動作。キーボードズームでウィンドウが拡大した状態でリセットすると、大きいウィンドウのまま画像がフィット表示される。
 
 ### ユーザーによるウィンドウ手動リサイズ
 
@@ -97,7 +109,7 @@ zoomLevel = min(round(fitZoom * 100) / 100, 4.0)
 
 ### コンテキストメニュー
 
-右クリック / Spaceキーで表示されるメニューにズーム項目を表示:
+右クリック / Spaceキーで表示されるメニューにズーム項目を常に表示:
 
 - ズームイン（+）
 - ズームアウト（-）
@@ -127,8 +139,8 @@ ViewerActions:
   setOriginalImageSize(size)  // 元画像サイズを設定（onLoad 時）
 ```
 
-- `resetZoom` は store から**削除**し、ViewerPage のローカルハンドラ `handleResetZoom` として実装する。理由: 現在のウィンドウサイズを Tauri API で取得する必要があり、store 内で完結できないため。
-- `goToNext` / `goToPrev` / `goToIndex` 実行時: ズーム率はリセットしない（画像切替後にフィット再計算で更新）
+- `resetZoom` は store ではなく ViewerPage のローカルハンドラ `handleResetZoom` として実装。理由: 現在のウィンドウサイズを Tauri API で取得する必要があり、store 内で完結できないため。
+- `goToNext` / `goToPrev` / `goToIndex` 実行時: ズーム率はリセットしない（画像切替後に `handleImageLoad` でフィット再計算）
 - `reset` 時: initialState に戻る
 
 ### ウィンドウリサイズ制御（ViewerPage）
@@ -138,7 +150,7 @@ ViewerActions:
 | 元画像サイズ | `img.naturalWidth` / `img.naturalHeight`（onLoad 時、viewerStore に保存） |
 | chrome 高 | ウィンドウ高 − 表示領域高（`main` 要素の clientHeight、`chromeHeightRef` に保存） |
 | デスクトップサイズ | `currentMonitor()` API |
-| ウィンドウ最小サイズ | Tauri 設定で 200×200 を指定（`tauri.conf.json`） |
+| ウィンドウ最小サイズ | `tauri.conf.json` で 200×200 を設定済み |
 
 #### ref 構成
 
@@ -147,8 +159,6 @@ ViewerActions:
 | `mainRef` | 表示領域の DOM 要素（chrome 高の計算に使用） |
 | `isResizingProgrammaticallyRef` | プログラムリサイズ中フラグ |
 | `chromeHeightRef` | ヘッダー+フッターの高さ（画像 onLoad 時に計測） |
-
-※ 現行の `fitImageSizeRef`、`baseWindowSizeRef`、`baseChromeHeightRef` は削除。元画像サイズは viewerStore の `originalImageSize` に移行。
 
 #### ヘルパー関数
 
@@ -166,7 +176,11 @@ function calculateFitZoom(displayW: number, displayH: number, imageW: number, im
 
 #### キーボードズームハンドラ
 
-`handleZoomIn` / `handleZoomOut` / `handleResetZoom` を ViewerPage 内で定義。store の `zoomIn`/`zoomOut` は直接呼ばず、ウィンドウリサイズとセットで実行する。
+`handleZoomIn` / `handleZoomOut` / `handleResetZoom` を ViewerPage 内で定義。store の `zoomIn`/`zoomOut` は使用せず、ウィンドウリサイズとセットで実行する。
+
+- `handleZoomIn`: ×1.2 → ウィンドウリサイズ → デスクトップ上限クランプ → ズーム率確定
+- `handleZoomOut`: 200px チェック → ×0.8 → ウィンドウリサイズ → 200px 下限クランプ → ズーム率確定
+- `handleResetZoom`: 現在のウィンドウサイズからフィットズーム率を計算（リサイズなし）
 
 #### プログラムリサイズ vs ユーザーリサイズの区別
 
@@ -184,7 +198,7 @@ requestAnimationFrame(() => { isResizingProgrammaticallyRef.current = false })
 
 ### 画像表示（ImageDisplay.tsx）
 
-props に `originalImageSize: { w: number; h: number } | null` を追加。`onImageLoad` は `(naturalWidth, naturalHeight)` を通知するシグネチャに変更。
+props に `originalImageSize: { w: number; h: number } | null` を追加。`onImageLoad` は `(naturalWidth, naturalHeight)` を通知するシグネチャ。
 
 表示サイズは常に `元画像サイズ × ズーム率` で計算する。
 
@@ -195,18 +209,17 @@ displayH = originalH × zoomLevel
 
 - `originalImageSize` 未取得時: `object-contain` でフォールバック表示
 - 画像がコンテナより小さい場合: 中央に配置
-- 画像がコンテナより大きい場合: `overflow-auto`（現仕様では発生しないが実装を残す）
+- 画像がコンテナより大きい場合: `overflow-auto`（通常は発生しないが実装を残す）
 - コンテナ: 常に `flex items-center justify-center overflow-auto`（ズーム状態による切替なし）
 - H-Flip: `transform: scaleX(-1)` で適用（ズームと干渉しない）
-- 現行の `fitSize` state は削除（不要）
 
 ### スクロールバー
 
-新仕様ではズーム率がウィンドウサイズと常に連動するため、画像がウィンドウからはみ出すケースは通常発生しない。ただし、将来の仕様変更を考慮して `overflow-auto` の実装は維持する。
+ズーム率がウィンドウサイズと常に連動するため、画像がウィンドウからはみ出すケースは通常発生しない。ただし、将来の仕様変更を考慮して `overflow-auto` の実装は維持する。
 
 ### Tauri パーミッション
 
-`src-tauri/capabilities/default.json` に以下を追加（追加済み）:
+`src-tauri/capabilities/default.json` に以下を設定済み:
 
 ```json
 "core:window:allow-set-size",
@@ -215,15 +228,9 @@ displayH = originalH × zoomLevel
 "core:window:allow-current-monitor"
 ```
 
-追加で必要になる可能性:
-
-```json
-"core:window:allow-set-min-size"
-```
-
 ### Tauri ウィンドウ最小サイズ設定
 
-`tauri.conf.json` または起動時の API で最小サイズを設定:
+`tauri.conf.json` で最小サイズを設定済み:
 
 ```json
 {
@@ -233,29 +240,3 @@ displayH = originalH × zoomLevel
   }]
 }
 ```
-
-または Rust 側 / フロントエンド API での設定。
-
-## 変更対象ファイル
-
-| ファイル | 変更内容 |
-|---------|---------|
-| `src/store/viewerStore.ts` | `zoomLevel` の意味変更（フィット基準→元画像基準）、×1.2/×0.8 操作、`originalImageSize` 追加 |
-| `src/components/viewer/ImageDisplay.tsx` | 表示サイズを `originalSize × zoomLevel` で常に計算、元画像サイズ通知 |
-| `src/pages/ViewerPage.tsx` | ウィンドウリサイズ制御、resize イベント監視、フィットズーム計算、フラグ制御 |
-| `src-tauri/capabilities/default.json` | `allow-set-min-size` 追加（必要な場合） |
-| `src-tauri/tauri.conf.json` | ウィンドウ最小サイズ設定 |
-
-## 現行実装からの主な変更点
-
-| 項目 | 現行 | 新仕様 |
-|------|------|--------|
-| ズーム率の基準 | フィット表示 = 1.0 | 元画像サイズ = 1.0（100%） |
-| ズーム操作 | +0.2 / -0.2（加算） | ×1.2 / ×0.8（乗算） |
-| ウィンドウリサイズ | ズームイン時のみ拡大 | 双方向連動（ズーム↔ウィンドウ） |
-| 手動リサイズ | ズーム率に反映されない | ズーム率を再計算して更新 |
-| 画像切替 | ウィンドウをズーム前のサイズに復元 | ウィンドウサイズ維持、ズーム率を再計算 |
-| スクロールバー | ウィンドウ上限時に表示 | 通常は発生しない（実装は残す） |
-| 最小ウィンドウ | 制約なし | 200×200px（Tauri 設定） |
-| 小さい画像 | object-contain（拡大なし） | 拡大してフィット（最大 400%） |
-| ヘッダー倍率表示 | ズーム中のみ | 常に表示 |

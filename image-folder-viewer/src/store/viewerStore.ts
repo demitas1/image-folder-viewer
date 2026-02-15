@@ -25,6 +25,7 @@ interface ViewerState {
   hFlipEnabled: boolean;
   shuffleEnabled: boolean;
   zoomLevel: number;
+  originalImageSize: { w: number; h: number } | null;
 
   // 読み込み状態
   isLoading: boolean;
@@ -56,7 +57,8 @@ interface ViewerActions {
   // ズーム
   zoomIn: () => void;
   zoomOut: () => void;
-  resetZoom: () => void;
+  setZoomLevel: (level: number) => void;
+  setOriginalImageSize: (size: { w: number; h: number } | null) => void;
 
   // リセット
   reset: () => void;
@@ -76,6 +78,7 @@ const initialState: ViewerState = {
   hFlipEnabled: false,
   shuffleEnabled: false,
   zoomLevel: 1.0,
+  originalImageSize: null,
   isLoading: false,
   error: null,
 };
@@ -159,7 +162,7 @@ export const useViewerStore = create<ViewerState & ViewerActions>((set, get) => 
     if (images.length === 0) return;
 
     const nextIndex = (currentIndex + 1) % images.length;
-    set({ currentIndex: nextIndex, zoomLevel: 1.0 });
+    set({ currentIndex: nextIndex });
   },
 
   // 前の画像へ
@@ -168,7 +171,7 @@ export const useViewerStore = create<ViewerState & ViewerActions>((set, get) => 
     if (images.length === 0) return;
 
     const prevIndex = (currentIndex - 1 + images.length) % images.length;
-    set({ currentIndex: prevIndex, zoomLevel: 1.0 });
+    set({ currentIndex: prevIndex });
   },
 
   // 指定インデックスへ
@@ -177,7 +180,7 @@ export const useViewerStore = create<ViewerState & ViewerActions>((set, get) => 
     if (images.length === 0) return;
 
     const validIndex = Math.max(0, Math.min(index, images.length - 1));
-    set({ currentIndex: validIndex, zoomLevel: 1.0 });
+    set({ currentIndex: validIndex });
   },
 
   // H-Flipトグル
@@ -240,23 +243,28 @@ export const useViewerStore = create<ViewerState & ViewerActions>((set, get) => 
     }
   },
 
-  // ズームイン（+20%、最大400%）
+  // ズームイン（×1.2、最大400%）
   zoomIn: () => {
     const { zoomLevel } = get();
-    const next = Math.min(Math.round((zoomLevel + 0.2) * 10) / 10, 4.0);
+    const next = Math.min(Math.round(zoomLevel * 1.2 * 100) / 100, 4.0);
     set({ zoomLevel: next });
   },
 
-  // ズームアウト（-20%、最小100%=フィット）
+  // ズームアウト（×0.8、下限は ViewerPage 側で制御）
   zoomOut: () => {
     const { zoomLevel } = get();
-    const next = Math.max(Math.round((zoomLevel - 0.2) * 10) / 10, 1.0);
+    const next = Math.max(Math.round(zoomLevel * 0.8 * 100) / 100, 0.01);
     set({ zoomLevel: next });
   },
 
-  // ズームリセット（フィット表示に戻す）
-  resetZoom: () => {
-    set({ zoomLevel: 1.0 });
+  // ズーム率直接設定（フィット計算・手動リサイズ時に使用）
+  setZoomLevel: (level: number) => {
+    set({ zoomLevel: Math.min(Math.max(level, 0.01), 4.0) });
+  },
+
+  // 元画像サイズ設定（onLoad 時に使用）
+  setOriginalImageSize: (size: { w: number; h: number } | null) => {
+    set({ originalImageSize: size });
   },
 
   // リセット
@@ -325,9 +333,8 @@ export const useViewerActions = () => {
       toggleShuffle: state.toggleShuffle,
       setHFlip: state.setHFlip,
       setShuffle: state.setShuffle,
-      zoomIn: state.zoomIn,
-      zoomOut: state.zoomOut,
-      resetZoom: state.resetZoom,
+      setZoomLevel: state.setZoomLevel,
+      setOriginalImageSize: state.setOriginalImageSize,
       reset: state.reset,
       clearError: state.clearError,
     }))
