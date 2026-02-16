@@ -15,6 +15,7 @@ import {
   type UpdateCardInput,
 } from "../store/profileStore";
 import { validateFolderPath } from "../api/tauri";
+import { getCurrentWindow, LogicalPosition, LogicalSize, currentMonitor } from "@tauri-apps/api/window";
 import type { Card } from "../types";
 
 export function IndexPage() {
@@ -53,6 +54,42 @@ export function IndexPage() {
     restoredRef.current = true;
 
     const { appState } = currentProfile;
+
+    // ウィンドウサイズ・位置の復元
+    const restoreWindow = async () => {
+      const { window: winState } = appState;
+      const win = getCurrentWindow();
+
+      // サイズ復元
+      await win.setSize(new LogicalSize(winState.width, winState.height));
+
+      // 位置復元（保存されている場合のみ）
+      if (winState.x !== null && winState.y !== null) {
+        const monitor = await currentMonitor();
+        if (monitor) {
+          const scale = monitor.scaleFactor ?? 1;
+          const monW = monitor.size.width / scale;
+          const monH = monitor.size.height / scale;
+          const monX = monitor.position.x / scale;
+          const monY = monitor.position.y / scale;
+
+          // ウィンドウの一部（100px以上）がモニター内に収まるか
+          const visible =
+            winState.x + 100 > monX &&
+            winState.x < monX + monW &&
+            winState.y + 100 > monY &&
+            winState.y < monY + monH;
+
+          if (visible) {
+            await win.setPosition(
+              new LogicalPosition(winState.x, winState.y)
+            );
+          }
+        }
+      }
+    };
+    restoreWindow();
+
     if (
       appState.lastPage === "viewer" &&
       appState.lastCardId &&

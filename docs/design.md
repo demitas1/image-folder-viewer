@@ -987,6 +987,9 @@ interface ViewerState {
 | `←` / `→` | 前後の画像 |
 | `H` | H-Flipトグル |
 | `R` | シャッフルトグル |
+| `+` / `=` | ズームイン（×1.2） |
+| `-` | ズームアウト（×0.8） |
+| `0` | ズームリセット |
 | `Space` | コンテキストメニュー表示（画面中央） |
 | `Q` / `Escape` | IndexPageに戻る |
 
@@ -1096,13 +1099,34 @@ src-tauri/src/commands/
 | IndexPageのキーボードショートカット不足 | Ctrl+O, Ctrl+Shift+S 未実装 | プロファイルを開く、別名保存のショートカット追加 | `IndexPage.tsx` |
 | IndexPageのショートカットヘルプ | 表示なし | フッターまたはヘルプパネルで表示 | `IndexPage.tsx` |
 | ローディング表示の統一 | IndexPageはローディング表示なし。ViewerPage・CardItemはテキストのみ | 共通のスピナーコンポーネントを作成し、プロファイル読み込み・保存・画像読み込み・サムネイル取得中に回転アイコンを表示 | 新規 `Spinner.tsx`, `IndexPage.tsx`, `ViewerPage.tsx`, `CardItem.tsx`, `ProfileSelector.tsx` |
-| ビューアのズーム機能 | 実装済み | `+`/`=`キーで20%ズームイン、`-`キーで20%ズームアウト、`0`キーでリセット。ウィンドウサイズ連動リサイズ（モニター上限あり）。はみ出し時スクロールバー表示。詳細は [design-zoom.md](./design-zoom.md) を参照 | `ViewerPage.tsx`, `ImageDisplay.tsx`, `viewerStore.ts` |
+| ビューアのズーム機能 ✅ | 実装済み | ズーム率＝元画像基準（100%＝原寸）。`+`/`=`で×1.2ズームイン、`-`で×0.8ズームアウト、`0`でフィットリセット。キーボードズーム時はウィンドウを双方向リサイズ（デスクトップ上限/200px下限）。手動リサイズ時はズーム率を再計算。最大400%。詳細は [design-zoom.md](./design-zoom.md) を参照 | `ViewerPage.tsx`, `ImageDisplay.tsx`, `viewerStore.ts`, `tauri.conf.json` |
 
-#### 5.4 状態保存の拡張
+#### 5.4 状態保存の拡張 ✅ 完了
 
-| 項目 | 現状 | 対応内容 | 対象ファイル |
+| 項目 | 状態 | 対応内容 | 対象ファイル |
 |------|------|---------|------------|
-| ウィンドウ位置・サイズの保存 | 未実装（AppState型定義はあるが使われていない） | ウィンドウ位置・サイズをappStateに保存し起動時に復元 | `ViewerPage.tsx`, `IndexPage.tsx`, Tauri設定 |
+| ウィンドウ位置・サイズの保存 | ✅ 実装済み | ウィンドウ位置・サイズをappStateに保存し起動時に復元 | `App.tsx`, `IndexPage.tsx`, `default.json` |
+
+**実装詳細**:
+
+保存（`App.tsx`）:
+- `onCloseRequested` ハンドラでウィンドウ終了時に `outerPosition`/`outerSize` を取得
+- `scaleFactor` で論理座標に変換し、appState.window に保存してプロファイルをディスクに書き出し
+- 保存は終了時の1回のみ（リサイズ中の I/O 負荷を回避）
+
+復元（`IndexPage.tsx`）:
+- 状態復元 useEffect 内でウィンドウサイズ・位置を復元
+- サイズは常に復元（デフォルト値 1280×800 でも問題なし）
+- 位置は `x !== null && y !== null` の場合のみ復元（初回起動時は OS に配置を委ねる）
+- モニター範囲外チェック: ウィンドウ左上 +100px がモニター内に収まらない場合は位置復元をスキップ（外部ディスプレイ取り外し等への対策）
+
+パーミッション（`default.json`）:
+- `core:window:allow-outer-position`, `core:window:allow-outer-size`, `core:window:allow-set-position` を追加
+
+注意事項:
+- `outerSize`/`outerPosition` を使用 — `setSize(LogicalSize)` は outer size を設定するため、保存・復元で一致
+- ViewerPage のズーム機能との競合なし（IndexPage で復元 → ViewerPage 遷移 → フィットズーム計算の順序で自然に動作）
+- Wayland 環境では `outerPosition()` が (0,0) を返す可能性あり。保存は問題なし、復元時に (0,0) を設定しても WM が配置を調整
 
 #### 5.5 クロスプラットフォーム
 
@@ -1142,8 +1166,9 @@ src-tauri/src/commands/
 |------|------|
 | `←` | 前の画像 |
 | `→` | 次の画像 |
-| `+` / `=` | ウィンドウサイズ拡大 |
-| `-` | ウィンドウサイズ縮小 |
+| `+` / `=` | ズームイン（×1.2、ウィンドウ拡大） |
+| `-` | ズームアウト（×0.8、ウィンドウ縮小） |
+| `0` | ズームリセット（フィット表示に戻す） |
 | `H` | 水平反転トグル |
 | `R` | シャッフルトグル |
 | `Space` | コンテキストメニュー表示 |
@@ -1173,14 +1198,15 @@ src-tauri/src/commands/
 
 ```
 ┌─────────────────────┐
-│ Open Files          │  ← 別のファイルを開く
-│ Open Directory      │  ← 別のディレクトリを開く
-├─────────────────────┤
 │ Copy                │  ← 画像をクリップボードにコピー
 │ Copy Path           │  ← ファイルパスをコピー
 ├─────────────────────┤
 │ H-Flip ON/OFF       │  ← 水平反転トグル（状態表示）
 │ Shuffle ON/OFF      │  ← シャッフルトグル（状態表示）
+├─────────────────────┤
+│ Zoom In         (+) │  ← ズームイン（×1.2）
+│ Zoom Out        (-) │  ← ズームアウト（×0.8）
+│ Zoom Reset      (0) │  ← フィット表示にリセット
 ├─────────────────────┤
 │ Back to Index       │  ← インデックスページに戻る
 │ Quit                │  ← アプリ終了
