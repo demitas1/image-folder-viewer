@@ -3,7 +3,9 @@
 mod commands;
 mod models;
 
+use tauri::Manager;
 use commands::{
+    load_app_config,
     // プロファイル管理
     create_new_profile,
     load_profile,
@@ -31,6 +33,25 @@ use commands::{
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .setup(|app| {
+            // 起動時にウィンドウをフォアグラウンドに表示（設定で制御可能）
+            let config = load_app_config(app.handle());
+            if config.focus_on_startup {
+                // Linux のフォーカス盗み防止対策：always_on_top で前面に出し、
+                // フォーカスを得た時点で解除する
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.set_always_on_top(true);
+                    let _ = window.set_focus();
+                    let w = window.clone();
+                    window.on_window_event(move |event| {
+                        if let tauri::WindowEvent::Focused(true) = event {
+                            let _ = w.set_always_on_top(false);
+                        }
+                    });
+                }
+            }
+            Ok(())
+        })
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![

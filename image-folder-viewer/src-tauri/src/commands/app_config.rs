@@ -24,24 +24,29 @@ fn get_config_path(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(app_data_dir.join(CONFIG_FILE_NAME))
 }
 
+/// アプリ共通設定をファイルから読み込む（内部処理用・setup フックから直接呼び出し可能）
+pub fn load_app_config(app: &AppHandle) -> AppConfig {
+    let config_path = match get_config_path(app) {
+        Ok(p) => p,
+        Err(_) => return AppConfig::default(),
+    };
+
+    if !config_path.exists() {
+        return AppConfig::default();
+    }
+
+    let content = match fs::read_to_string(&config_path) {
+        Ok(c) => c,
+        Err(_) => return AppConfig::default(),
+    };
+
+    serde_json::from_str(&content).unwrap_or_else(|_| AppConfig::default())
+}
+
 /// アプリ共通設定を取得（起動時に呼び出し）
 #[tauri::command]
 pub fn get_app_config(app: AppHandle) -> Result<AppConfig, String> {
-    let config_path = get_config_path(&app)?;
-
-    // ファイルが存在しない場合はデフォルト設定を返す
-    if !config_path.exists() {
-        return Ok(AppConfig::default());
-    }
-
-    // ファイル読み込み
-    let content = fs::read_to_string(&config_path)
-        .map_err(|e| format!("設定ファイルの読み込みに失敗しました: {}", e))?;
-
-    // JSONパース（失敗時はデフォルト設定を返す）
-    let config: AppConfig = serde_json::from_str(&content).unwrap_or_else(|_| AppConfig::default());
-
-    Ok(config)
+    Ok(load_app_config(&app))
 }
 
 /// アプリ共通設定を保存

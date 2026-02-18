@@ -71,6 +71,8 @@ export interface AppConfig {
   recentProfiles: RecentProfile[];
   maxRecentProfiles: number;
   theme: "light" | "dark" | "system";
+  /** 起動時にウィンドウを最前面に表示する（Linux のフォーカス盗み防止対策、デフォルト: true） */
+  focusOnStartup: boolean;
 }
 
 // 画像ファイル情報（軽量版：ビューア用）
