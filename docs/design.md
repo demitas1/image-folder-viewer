@@ -1425,3 +1425,67 @@ class ThumbnailQueue {
 **Step 3: 永続化** ✅ 完了
 - [x] ディスクキャッシュの実装（`app_cache_dir()/thumbnails/`、SHA-256ハッシュ、mtime判定）
 - [ ] キャッシュ管理機能（サイズ上限、有効期限）
+
+---
+
+## 付録D: アイコンの変更手順
+
+### D.1 ソースファイル
+
+アイコン素材は `images/` ディレクトリに管理する。
+
+```
+images/
+├── image.svg        # Inkscape で編集するマスターファイル
+└── icon-source.png  # tauri icon コマンドに渡す 1024×1024px PNG
+```
+
+### D.2 アイコン変更手順
+
+**1. SVG を編集する**
+
+`images/image.svg` を Inkscape で開いて編集する。
+
+注意点：
+- `stroke="currentColor"` は PNG 変換時に黒になる。明示的な色（例: `stroke="#ffffff"`）に変更しておくこと
+- ウィンドウサイズやズームが SVG に埋め込まれるが、`viewBox` さえ正しければ変換に影響しない
+
+**2. PNG に書き出す**
+
+```bash
+inkscape images/image.svg \
+  --export-type=png \
+  --export-width=1024 \
+  --export-height=1024 \
+  --export-filename=images/icon-source.png
+```
+
+**3. Tauri 用アイコンを一括生成する**
+
+```bash
+cd image-folder-viewer
+npx tauri icon ../images/icon-source.png
+```
+
+`src-tauri/icons/` 内の全ファイルが自動更新される。
+
+### D.3 生成されるファイル一覧
+
+| ファイル | 用途 |
+|---|---|
+| `icons/32x32.png` | Linux タスクバー・ウィンドウタイトル |
+| `icons/64x64.png` | Linux 中解像度 |
+| `icons/128x128.png` | Linux アプリランチャー |
+| `icons/128x128@2x.png` | Linux HiDPI（256×256px の内容） |
+| `icons/icon.png` | 汎用（1024×1024px） |
+| `icons/icon.icns` | macOS |
+| `icons/icon.ico` | Windows（複数解像度を内包） |
+| `icons/Square*.png` / `icons/StoreLogo.png` | Windows Store 用 |
+| `icons/android/` | Android 用各解像度 |
+| `icons/ios/` | iOS 用各解像度 |
+
+### D.4 git への追加
+
+```bash
+git add image-folder-viewer/src-tauri/icons/ images/
+```

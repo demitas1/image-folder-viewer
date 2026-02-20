@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="24"
+   height="24"
+   viewBox="0 0 24 24"
+   fill="none"
+   stroke="currentColor"
+   stroke-width="2"
+   stroke-linecap="round"
+   stroke-linejoin="round"
+   class="feather feather-image"
+   version="1.1"
+   id="svg1"
+   sodipodi:docname="image.svg"
+   inkscape:version="1.4.3 (0d15f75, 2025-12-25)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1" />
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#505050"
+     bordercolor="#ffffff"
+     borderopacity="1"
+     inkscape:showpageshadow="0"
+     inkscape:pageopacity="0"
+     inkscape:pagecheckerboard="1"
+     inkscape:deskcolor="#505050"
+     inkscape:zoom="75.625"
+     inkscape:cx="12.006612"
+     inkscape:cy="12"
+     inkscape:window-width="3776"
+     inkscape:window-height="2070"
+     inkscape:window-x="0"
+     inkscape:window-y="42"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg1" />
+  <rect
+     x="3"
+     y="3"
+     width="18"
+     height="18"
+     rx="2"
+     ry="2"
+     id="rect1"
+     style="display:inline;fill:#5dd0ff;fill-opacity:1" />
+  <circle
+     cx="8.5"
+     cy="8.5"
+     r="1.5"
+     id="circle1" />
+  <polyline
+     points="21 15 16 10 5 21"
+     id="polyline1" />
+</svg>
