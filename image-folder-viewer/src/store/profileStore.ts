@@ -46,6 +46,9 @@ interface ProfileState {
 
   // 初期化済みフラグ
   initialized: boolean;
+
+  // 起動時の自動オープン実行中フラグ
+  isAutoOpening: boolean;
 }
 
 interface ProfileActions {
@@ -85,20 +88,46 @@ export const useProfileStore = create<ProfileState & ProfileActions>(
     isLoading: false,
     error: null,
     initialized: false,
+    isAutoOpening: false,
 
-    // 初期化
+    // 初期化（起動時に呼び出し）
+    // 最近使用したプロファイルがある場合は自動でオープンし、IndexPage / ViewerPage に直行する
     initialize: async () => {
       if (get().initialized) return;
 
       set({ isLoading: true, error: null });
       try {
         const config = await getAppConfig();
-        set({ appConfig: config, initialized: true, isLoading: false });
+        set({ appConfig: config, initialized: true });
+
+        // 最近使用したプロファイルがある場合は自動で開く
+        if (config.recentProfiles.length > 0) {
+          set({ isAutoOpening: true });
+          try {
+            const path = config.recentProfiles[0].path;
+            const profile = await loadProfile(path);
+            await addRecentProfile(path);
+            const updatedConfig = await getAppConfig();
+            set({
+              currentProfile: profile,
+              currentProfilePath: path,
+              appConfig: updatedConfig,
+              isAutoOpening: false,
+              isLoading: false,
+            });
+          } catch {
+            // 自動オープン失敗: エラーなしで StartupPage を表示
+            set({ isAutoOpening: false, isLoading: false });
+          }
+        } else {
+          set({ isLoading: false });
+        }
       } catch (e) {
         set({
           error: `設定の読み込みに失敗しました: ${e}`,
           isLoading: false,
           initialized: true,
+          isAutoOpening: false,
         });
       }
     },

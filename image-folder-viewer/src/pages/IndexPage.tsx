@@ -7,6 +7,7 @@ import { ProfileSelector } from "../components/profile/ProfileSelector";
 import { CardGrid, type CardValidation } from "../components/cards/CardGrid";
 import { CardAddModal } from "../components/cards/CardAddModal";
 import { CardEditModal } from "../components/cards/CardEditModal";
+import { Spinner } from "../components/common/Spinner";
 import {
   useProfileStore,
   useCards,
@@ -20,14 +21,26 @@ import type { Card } from "../types";
 
 export function IndexPage() {
   const navigate = useNavigate();
-  const { currentProfile, saveCurrentProfile, error, clearError } =
-    useProfileStore();
+  const {
+    currentProfile,
+    saveCurrentProfile,
+    error,
+    clearError,
+    initialize,
+    initialized,
+    isAutoOpening,
+  } = useProfileStore();
   const cards = useCards();
   const { addCard, updateCard, deleteCard, reorderCards } = useCardActions();
   const updateAppState = useProfileStore((state) => state.updateAppState);
 
   // 状態復元フラグ（一度だけ実行）
   const restoredRef = useRef(false);
+
+  // 起動時の初期化（前回プロファイルの自動オープンを含む）
+  useEffect(() => {
+    initialize();
+  }, [initialize]);
 
   // モーダル状態
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -41,12 +54,12 @@ export function IndexPage() {
     new Map()
   );
 
-  // プロファイルが読み込まれていない場合はStartupPageへ
+  // 初期化完了後・自動オープン完了後もプロファイルがなければ StartupPage へ
   useEffect(() => {
-    if (!currentProfile) {
+    if (initialized && !isAutoOpening && !currentProfile) {
       navigate("/startup");
     }
-  }, [currentProfile, navigate]);
+  }, [initialized, isAutoOpening, currentProfile, navigate]);
 
   // 状態復元: 前回ViewerPageだった場合は復元遷移
   useEffect(() => {
@@ -304,7 +317,16 @@ export function IndexPage() {
     handleCardClick,
   ]);
 
-  // プロファイルが未読み込みの場合は何も表示しない
+  // 初期化中・自動オープン中はローディング表示
+  if (!initialized || isAutoOpening) {
+    return (
+      <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
+        <Spinner size="lg" text="読み込み中..." />
+      </div>
+    );
+  }
+
+  // プロファイルが未読み込みの場合は何も表示しない（StartupPage へのリダイレクト待ち）
   if (!currentProfile) {
     return null;
   }
