@@ -1,7 +1,7 @@
 // Tauriコマンド呼び出しラッパー
 
 import { invoke } from "@tauri-apps/api/core";
-import type { ProfileData, AppConfig, ImageFile } from "../types";
+import type { ProfileData, AppConfig, ImageFile, InitialState } from "../types";
 
 // ========================================
 // プロファイル管理
@@ -29,6 +29,18 @@ export async function saveProfile(
  */
 export async function createNewProfile(path: string): Promise<ProfileData> {
   return invoke<ProfileData>("create_new_profile", { path });
+}
+
+// ========================================
+// 起動時初期状態
+// ========================================
+
+/**
+ * 起動時初期状態を取得する
+ * setup フックで事前読み込み済みのため、ファイル IO なしで即座に返す
+ */
+export async function getInitialState(): Promise<InitialState> {
+  return invoke<InitialState>("get_initial_state");
 }
 
 // ========================================

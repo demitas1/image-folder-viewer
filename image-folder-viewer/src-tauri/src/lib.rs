@@ -3,9 +3,11 @@
 mod commands;
 mod models;
 
+use std::sync::Mutex;
 use tauri::Manager;
 use commands::{
     load_app_config,
+    load_profile_from_path,
     // プロファイル管理
     create_new_profile,
     load_profile,
@@ -13,6 +15,7 @@ use commands::{
     // アプリ共通設定
     add_recent_profile,
     get_app_config,
+    get_initial_state,
     remove_recent_profile,
     save_app_config,
     // ダイアログ
@@ -34,14 +37,14 @@ use commands::{
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
-            // 起動時にウィンドウをフォアグラウンドに表示（設定で制御可能）
+            // app_config.json を読み込む
             let config = load_app_config(app.handle());
+
+            // focus_on_startup が有効な場合、フォーカス取得後に always_on_top を解除
+            // ウィンドウは非表示で起動し、フロントエンドの window.show() 後にフォーカスが当たる
             if config.focus_on_startup {
-                // Linux のフォーカス盗み防止対策：always_on_top で前面に出し、
-                // フォーカスを得た時点で解除する
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.set_always_on_top(true);
-                    let _ = window.set_focus();
                     let w = window.clone();
                     window.on_window_event(move |event| {
                         if let tauri::WindowEvent::Focused(true) = event {
@@ -50,11 +53,32 @@ pub fn run() {
                     });
                 }
             }
+
+            // 最近使用したプロファイルを先読み（ファイル IO をここで完了させる）
+            let (profile, profile_path) = if let Some(recent) = config.recent_profiles.first() {
+                let path = recent.path.clone();
+                match load_profile_from_path(&path) {
+                    Ok(p) => (Some(p), Some(path)),
+                    Err(_) => (None, None),
+                }
+            } else {
+                (None, None)
+            };
+
+            // InitialState を管理状態として保持（get_initial_state コマンドで取得）
+            app.manage(Mutex::new(models::InitialState {
+                app_config: config,
+                profile,
+                profile_path,
+            }));
+
             Ok(())
         })
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
+            // 起動時初期状態
+            get_initial_state,
             // プロファイル管理
             load_profile,
             save_profile,

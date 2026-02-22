@@ -22,7 +22,6 @@ export function StartupPage() {
     clearError,
     currentProfile,
     initialized,
-    isAutoOpening,
   } = useProfileStore();
 
   const recentProfiles = useRecentProfiles();
@@ -39,12 +38,12 @@ export function StartupPage() {
     }
   }, [currentProfile, navigate]);
 
-  // 初期化完了後にウィンドウを表示（起動時フリッカー対策）
+  // 初期化完了後、StartupPage に留まる場合はウィンドウを表示
   useEffect(() => {
-    if (initialized && !isAutoOpening) {
+    if (initialized && !currentProfile) {
       getCurrentWindow().show();
     }
-  }, [initialized, isAutoOpening]);
+  }, [initialized, currentProfile]);
 
   // 履歴からプロファイルを開く
   const handleOpenRecent = async (path: string) => {
