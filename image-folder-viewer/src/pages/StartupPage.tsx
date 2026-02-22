@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   useProfileStore,
   useRecentProfiles,
@@ -20,6 +21,8 @@ export function StartupPage() {
     error,
     clearError,
     currentProfile,
+    initialized,
+    isAutoOpening,
   } = useProfileStore();
 
   const recentProfiles = useRecentProfiles();
@@ -35,6 +38,13 @@ export function StartupPage() {
       navigate("/");
     }
   }, [currentProfile, navigate]);
+
+  // 初期化完了後にウィンドウを表示（起動時フリッカー対策）
+  useEffect(() => {
+    if (initialized && !isAutoOpening) {
+      getCurrentWindow().show();
+    }
+  }, [initialized, isAutoOpening]);
 
   // 履歴からプロファイルを開く
   const handleOpenRecent = async (path: string) => {
