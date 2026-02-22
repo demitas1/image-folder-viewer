@@ -75,6 +75,13 @@ export interface AppConfig {
   focusOnStartup: boolean;
 }
 
+// 起動時初期状態（get_initial_state コマンドの戻り値）
+export interface InitialState {
+  appConfig: AppConfig;
+  profile: ProfileData | null;
+  profilePath: string | null;
+}
+
 // 画像ファイル情報（軽量版：ビューア用）
 export interface ImageFile {
   path: string;

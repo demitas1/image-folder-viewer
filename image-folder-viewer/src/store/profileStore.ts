@@ -8,6 +8,7 @@ import {
   saveProfile,
   createNewProfile,
   getAppConfig,
+  getInitialState,
   addRecentProfile,
   removeRecentProfile,
   selectProfileFile,
@@ -91,43 +92,39 @@ export const useProfileStore = create<ProfileState & ProfileActions>(
     isAutoOpening: false,
 
     // 初期化（起動時に呼び出し）
-    // 最近使用したプロファイルがある場合は自動でオープンし、IndexPage / ViewerPage に直行する
+    // Rust の setup フックで事前読み込みされた InitialState を1コマンドで取得し、
+    // 即座に状態を設定する（非同期ファイル IO なし）
     initialize: async () => {
       if (get().initialized) return;
 
       set({ isLoading: true, error: null });
       try {
-        const config = await getAppConfig();
-        set({ appConfig: config, initialized: true });
+        const initialState = await getInitialState();
 
-        // 最近使用したプロファイルがある場合は自動で開く
-        if (config.recentProfiles.length > 0) {
-          set({ isAutoOpening: true });
-          try {
-            const path = config.recentProfiles[0].path;
-            const profile = await loadProfile(path);
-            await addRecentProfile(path);
-            const updatedConfig = await getAppConfig();
-            set({
-              currentProfile: profile,
-              currentProfilePath: path,
-              appConfig: updatedConfig,
-              isAutoOpening: false,
-              isLoading: false,
-            });
-          } catch {
-            // 自動オープン失敗: エラーなしで StartupPage を表示
-            set({ isAutoOpening: false, isLoading: false });
-          }
+        if (initialState.profile && initialState.profilePath) {
+          // プロファイルが先読み済み: そのまま設定して直接 IndexPage へ
+          set({
+            appConfig: initialState.appConfig,
+            currentProfile: initialState.profile,
+            currentProfilePath: initialState.profilePath,
+            initialized: true,
+            isLoading: false,
+          });
+          // 最終アクセス日時の更新は非同期でバックグラウンド実行（表示には影響しない）
+          addRecentProfile(initialState.profilePath).catch(() => {});
         } else {
-          set({ isLoading: false });
+          // プロファイルなし: StartupPage を表示
+          set({
+            appConfig: initialState.appConfig,
+            initialized: true,
+            isLoading: false,
+          });
         }
       } catch (e) {
         set({
-          error: `設定の読み込みに失敗しました: ${e}`,
+          error: `初期状態の取得に失敗しました: ${e}`,
           isLoading: false,
           initialized: true,
-          isAutoOpening: false,
         });
       }
     },

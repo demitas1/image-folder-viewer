@@ -68,7 +68,7 @@ export function IndexPage() {
 
     const { appState } = currentProfile;
 
-    // ウィンドウサイズ・位置の復元
+    // ウィンドウサイズ・位置の復元後にウィンドウを表示
     const restoreWindow = async () => {
       const { window: winState } = appState;
       const win = getCurrentWindow();
@@ -100,6 +100,9 @@ export function IndexPage() {
           }
         }
       }
+
+      // サイズ・位置の確定後にウィンドウを表示（フリッカー防止）
+      await win.show();
     };
     restoreWindow();
 

@@ -4,10 +4,9 @@ use crate::models::ProfileData;
 use std::fs;
 use std::path::Path;
 
-/// プロファイルを読み込む
-#[tauri::command]
-pub fn load_profile(path: String) -> Result<ProfileData, String> {
-    let path = Path::new(&path);
+/// プロファイルをファイルから読み込む（内部処理用・setup フックから直接呼び出し可能）
+pub fn load_profile_from_path(path: &str) -> Result<ProfileData, String> {
+    let path = Path::new(path);
 
     // ファイルの存在確認
     if !path.exists() {
@@ -23,6 +22,12 @@ pub fn load_profile(path: String) -> Result<ProfileData, String> {
         .map_err(|e| format!("プロファイルの解析に失敗しました: {}", e))?;
 
     Ok(profile)
+}
+
+/// プロファイルを読み込む
+#[tauri::command]
+pub fn load_profile(path: String) -> Result<ProfileData, String> {
+    load_profile_from_path(&path)
 }
 
 /// プロファイルを保存する
