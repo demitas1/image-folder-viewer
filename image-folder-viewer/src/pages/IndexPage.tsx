@@ -61,6 +61,13 @@ export function IndexPage() {
     }
   }, [initialized, isAutoOpening, currentProfile, navigate]);
 
+  // 初期化完了後にウィンドウを表示（起動時フリッカー対策）
+  useEffect(() => {
+    if (initialized && !isAutoOpening) {
+      getCurrentWindow().show();
+    }
+  }, [initialized, isAutoOpening]);
+
   // 状態復元: 前回ViewerPageだった場合は復元遷移
   useEffect(() => {
     if (!currentProfile || restoredRef.current) return;

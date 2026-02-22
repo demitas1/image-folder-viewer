@@ -54,9 +54,6 @@ export function ViewerPage() {
     y: number;
   } | null>(null);
 
-  // 初回読み込みスキップ用フラグ
-  const isInitialLoadRef = useRef(true);
-
   // ズーム用ref
   const mainRef = useRef<HTMLElement>(null);
   const isResizingProgrammaticallyRef = useRef(false);
@@ -282,14 +279,7 @@ export function ViewerPage() {
 
   // 画像表示・オプション変更時にビューア状態を保存
   useEffect(() => {
-    // 初回読み込み時（loadImages完了直後）はスキップ
-    if (isInitialLoadRef.current) {
-      if (totalImages > 0) {
-        isInitialLoadRef.current = false;
-      }
-      return;
-    }
-
+    if (totalImages <= 0) return;
     saveViewerState();
   }, [actualIndex, hFlipEnabled, shuffleEnabled, saveViewerState, totalImages]);
 
