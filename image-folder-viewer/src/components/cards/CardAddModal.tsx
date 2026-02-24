@@ -1,7 +1,7 @@
 // カード追加モーダル
 
 import { useState, useEffect } from "react";
-import { FolderOpen, ImageIcon } from "lucide-react";
+import { FolderOpen, ImageIcon, AlertTriangle } from "lucide-react";
 import { Modal, Button } from "../common/Modal";
 import {
   selectFolder,
@@ -40,6 +40,9 @@ export const CardAddModal = ({ isOpen, onClose, onAdd }: CardAddModalProps) => {
   const [isSelectingFolder, setIsSelectingFolder] = useState(false);
   const [isLoadingThumbnail, setIsLoadingThumbnail] = useState(false);
 
+  // エラー状態
+  const [error, setError] = useState<string | null>(null);
+
   // モーダルを閉じる時にリセット
   useEffect(() => {
     if (!isOpen) {
@@ -48,6 +51,7 @@ export const CardAddModal = ({ isOpen, onClose, onAdd }: CardAddModalProps) => {
       setTitle("");
       setThumbnailPath(null);
       setThumbnailUrl(null);
+      setError(null);
     }
   }, [isOpen]);
 
@@ -79,6 +83,7 @@ export const CardAddModal = ({ isOpen, onClose, onAdd }: CardAddModalProps) => {
         console.error("サムネイル読み込みエラー:", e);
         if (!cancelled) {
           setThumbnailUrl(null);
+          setError(`サムネイルの読み込みに失敗しました: ${e}`);
         }
       })
       .finally(() => {
@@ -95,6 +100,7 @@ export const CardAddModal = ({ isOpen, onClose, onAdd }: CardAddModalProps) => {
   // フォルダ選択
   const handleSelectFolder = async () => {
     setIsSelectingFolder(true);
+    setError(null);
     try {
       const path = await selectFolder();
       if (path) {
@@ -112,7 +118,7 @@ export const CardAddModal = ({ isOpen, onClose, onAdd }: CardAddModalProps) => {
       }
     } catch (e) {
       console.error("フォルダ選択エラー:", e);
-      onClose();
+      setError(`フォルダの選択に失敗しました: ${e}`);
     } finally {
       setIsSelectingFolder(false);
     }
@@ -120,6 +126,7 @@ export const CardAddModal = ({ isOpen, onClose, onAdd }: CardAddModalProps) => {
 
   // サムネイル変更
   const handleChangeThumbnail = async () => {
+    setError(null);
     try {
       const path = await selectImageFile(folderPath);
       if (path) {
@@ -127,6 +134,7 @@ export const CardAddModal = ({ isOpen, onClose, onAdd }: CardAddModalProps) => {
       }
     } catch (e) {
       console.error("画像選択エラー:", e);
+      setError(`画像の選択に失敗しました: ${e}`);
     }
   };
 
@@ -146,12 +154,18 @@ export const CardAddModal = ({ isOpen, onClose, onAdd }: CardAddModalProps) => {
   if (phase === "folder") {
     return (
       <Modal isOpen={isOpen} onClose={onClose} title="新規カード作成" width="sm">
-        <div className="flex flex-col items-center justify-center py-8">
+        <div className="flex flex-col items-center justify-center py-8 gap-4">
+          {error && (
+            <div className="w-full flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
+              <AlertTriangle size={18} className="flex-shrink-0 mt-0.5" />
+              <span>{error}</span>
+            </div>
+          )}
           {isSelectingFolder ? (
             <div className="text-gray-500">フォルダを選択してください...</div>
           ) : (
             <>
-              <FolderOpen size={48} className="text-gray-300 mb-4" />
+              <FolderOpen size={48} className="text-gray-300" />
               <Button variant="primary" onClick={handleSelectFolder}>
                 フォルダを選択
               </Button>
@@ -185,6 +199,14 @@ export const CardAddModal = ({ isOpen, onClose, onAdd }: CardAddModalProps) => {
       }
     >
       <div className="space-y-4">
+        {/* エラーメッセージ */}
+        {error && (
+          <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
+            <AlertTriangle size={18} className="flex-shrink-0 mt-0.5" />
+            <span>{error}</span>
+          </div>
+        )}
+
         {/* フォルダパス */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
