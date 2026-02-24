@@ -42,6 +42,9 @@ export const CardEditModal = ({
   // ローディング状態
   const [isLoadingThumbnail, setIsLoadingThumbnail] = useState(false);
 
+  // エラー状態
+  const [error, setError] = useState<string | null>(null);
+
   // カードが変わったらフォーム値をリセット
   useEffect(() => {
     if (card && isOpen) {
@@ -49,6 +52,7 @@ export const CardEditModal = ({
       setFolderPath(card.folderPath);
       setThumbnailPath(card.thumbnail);
       setIsFolderChanged(false);
+      setError(null);
     }
   }, [card, isOpen]);
 
@@ -73,6 +77,7 @@ export const CardEditModal = ({
         console.error("サムネイル読み込みエラー:", e);
         if (!cancelled) {
           setThumbnailUrl(null);
+          setError(`サムネイルの読み込みに失敗しました: ${e}`);
         }
       })
       .finally(() => {
@@ -88,6 +93,7 @@ export const CardEditModal = ({
 
   // フォルダ変更（エラー状態のカード用）
   const handleChangeFolder = async () => {
+    setError(null);
     try {
       const path = await selectFolder();
       if (path) {
@@ -100,11 +106,13 @@ export const CardEditModal = ({
       }
     } catch (e) {
       console.error("フォルダ選択エラー:", e);
+      setError(`フォルダの選択に失敗しました: ${e}`);
     }
   };
 
   // サムネイル変更
   const handleChangeThumbnail = async () => {
+    setError(null);
     try {
       const path = await selectImageFile(folderPath);
       if (path) {
@@ -112,6 +120,7 @@ export const CardEditModal = ({
       }
     } catch (e) {
       console.error("画像選択エラー:", e);
+      setError(`画像の選択に失敗しました: ${e}`);
     }
   };
 
@@ -161,6 +170,14 @@ export const CardEditModal = ({
       }
     >
       <div className="space-y-4">
+        {/* 操作エラーメッセージ */}
+        {error && (
+          <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
+            <AlertTriangle size={18} className="flex-shrink-0 mt-0.5" />
+            <span>{error}</span>
+          </div>
+        )}
+
         {/* エラー状態の警告 */}
         {!isValid && !isFolderChanged && (
           <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
