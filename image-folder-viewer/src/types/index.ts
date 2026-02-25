@@ -9,6 +9,8 @@ export interface Card {
   sortOrder: number;
   createdAt: string;
   updatedAt: string;
+  /** サブディレクトリを含めて画像を検索するか */
+  recursive: boolean;
 }
 
 // カード（検証結果付き）

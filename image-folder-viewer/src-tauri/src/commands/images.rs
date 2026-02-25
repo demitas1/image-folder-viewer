@@ -187,9 +187,54 @@ pub fn get_thumbnail(app: AppHandle, image_path: String, size: u32) -> Result<St
     Ok(result)
 }
 
+/// パスが画像ファイルかどうか判定
+fn is_image_file(path: &Path) -> bool {
+    if !path.is_file() {
+        return false;
+    }
+    if let Some(ext) = path.extension() {
+        let ext_lower = ext.to_string_lossy().to_lowercase();
+        return IMAGE_EXTENSIONS.contains(&ext_lower.as_str());
+    }
+    false
+}
+
+/// フォルダ内の画像ファイルパスを収集（再帰オプション付き、ファイル名順）
+fn collect_images(dir: &Path, recursive: bool) -> Result<Vec<PathBuf>, String> {
+    let mut result: Vec<PathBuf> = Vec::new();
+
+    let entries = fs::read_dir(dir)
+        .map_err(|e| format!("フォルダの読み込みに失敗しました: {}", e))?;
+
+    let mut dirs: Vec<PathBuf> = Vec::new();
+
+    for entry in entries.filter_map(|e| e.ok()) {
+        let path = entry.path();
+        if is_image_file(&path) {
+            result.push(path);
+        } else if recursive && path.is_dir() {
+            dirs.push(path);
+        }
+    }
+
+    // 現在のディレクトリの画像をファイル名順にソート
+    result.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
+
+    // サブディレクトリを再帰的に処理（ディレクトリ名順）
+    if recursive {
+        dirs.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
+        for sub_dir in dirs {
+            let sub_images = collect_images(&sub_dir, true)?;
+            result.extend(sub_images);
+        }
+    }
+
+    Ok(result)
+}
+
 /// フォルダ内の最初の画像ファイルパスを取得
 #[tauri::command]
-pub fn get_first_image_in_folder(folder_path: String) -> Result<Option<String>, String> {
+pub fn get_first_image_in_folder(folder_path: String, recursive: bool) -> Result<Option<String>, String> {
     let path = Path::new(&folder_path);
 
     if !path.exists() {
@@ -200,30 +245,8 @@ pub fn get_first_image_in_folder(folder_path: String) -> Result<Option<String>, 
         return Err(format!("指定されたパスはフォルダではありません: {}", folder_path));
     }
 
-    // ディレクトリ内のエントリを取得してソート
-    let mut entries: Vec<_> = fs::read_dir(path)
-        .map_err(|e| format!("フォルダの読み込みに失敗しました: {}", e))?
-        .filter_map(|entry| entry.ok())
-        .filter(|entry| {
-            if let Ok(file_type) = entry.file_type() {
-                if file_type.is_file() {
-                    if let Some(ext) = entry.path().extension() {
-                        let ext_lower = ext.to_string_lossy().to_lowercase();
-                        return IMAGE_EXTENSIONS.contains(&ext_lower.as_str());
-                    }
-                }
-            }
-            false
-        })
-        .collect();
-
-    // ファイル名でソート
-    entries.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
-
-    // 最初の画像ファイルのパスを返す
-    Ok(entries
-        .first()
-        .map(|entry| entry.path().to_string_lossy().to_string()))
+    let images = collect_images(path, recursive)?;
+    Ok(images.first().map(|p| p.to_string_lossy().to_string()))
 }
 
 /// フォルダパスが有効かどうかを検証
@@ -240,9 +263,9 @@ pub struct ImageFile {
     pub filename: String,
 }
 
-/// フォルダ内のすべての画像ファイルを取得（ファイル名順でソート）
+/// フォルダ内のすべての画像ファイルを取得（ファイル名順でソート、再帰オプション付き）
 #[tauri::command]
-pub fn get_images_in_folder(folder_path: String) -> Result<Vec<ImageFile>, String> {
+pub fn get_images_in_folder(folder_path: String, recursive: bool) -> Result<Vec<ImageFile>, String> {
     let path = Path::new(&folder_path);
 
     if !path.exists() {
@@ -256,38 +279,16 @@ pub fn get_images_in_folder(folder_path: String) -> Result<Vec<ImageFile>, Strin
         ));
     }
 
-    // ディレクトリ内のエントリを取得
-    let mut entries: Vec<_> = fs::read_dir(path)
-        .map_err(|e| format!("フォルダの読み込みに失敗しました: {}", e))?
-        .filter_map(|entry| entry.ok())
-        .filter(|entry| {
-            if let Ok(file_type) = entry.file_type() {
-                if file_type.is_file() {
-                    if let Some(ext) = entry.path().extension() {
-                        let ext_lower = ext.to_string_lossy().to_lowercase();
-                        return IMAGE_EXTENSIONS.contains(&ext_lower.as_str());
-                    }
-                }
-            }
-            false
-        })
-        .collect();
+    let paths = collect_images(path, recursive)?;
 
-    // ファイル名でソート
-    entries.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
-
-    // 画像ファイル情報を収集
-    let images: Vec<ImageFile> = entries
-        .iter()
-        .map(|entry| {
-            let file_path = entry.path();
-            ImageFile {
-                path: file_path.to_string_lossy().to_string(),
-                filename: file_path
-                    .file_name()
-                    .map(|n| n.to_string_lossy().to_string())
-                    .unwrap_or_default(),
-            }
+    let images: Vec<ImageFile> = paths
+        .into_iter()
+        .map(|file_path| ImageFile {
+            path: file_path.to_string_lossy().to_string(),
+            filename: file_path
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_default(),
         })
         .collect();
 

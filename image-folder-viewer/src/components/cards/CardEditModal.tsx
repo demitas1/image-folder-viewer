@@ -35,6 +35,7 @@ export const CardEditModal = ({
   const [folderPath, setFolderPath] = useState("");
   const [thumbnailPath, setThumbnailPath] = useState<string | null>(null);
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
+  const [recursive, setRecursive] = useState(false);
 
   // 編集状態追跡
   const [isFolderChanged, setIsFolderChanged] = useState(false);
@@ -51,6 +52,7 @@ export const CardEditModal = ({
       setTitle(card.title);
       setFolderPath(card.folderPath);
       setThumbnailPath(card.thumbnail);
+      setRecursive(card.recursive);
       setIsFolderChanged(false);
       setError(null);
     }
@@ -142,6 +144,11 @@ export const CardEditModal = ({
       input.thumbnail = thumbnailPath;
     }
 
+    // recursive が変更された場合
+    if (recursive !== card.recursive) {
+      input.recursive = recursive;
+    }
+
     onSave(card.id, input);
     onClose();
   };
@@ -218,6 +225,15 @@ export const CardEditModal = ({
               フォルダが変更されました
             </p>
           )}
+          <label className="flex items-center gap-2 mt-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={recursive}
+              onChange={(e) => setRecursive(e.target.checked)}
+              className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span className="text-sm text-gray-600">サブディレクトリの画像を含める</span>
+          </label>
         </div>
 
         {/* タイトル */}
