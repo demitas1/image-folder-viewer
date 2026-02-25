@@ -304,6 +304,7 @@ export function ViewerPage() {
   // 画像一覧の読み込み（プリミティブ値を依存配列に使用し、不要な再読み込みを防止）
   const cardTitle = card?.title ?? "";
   const folderPath = card?.folderPath;
+  const recursive = card?.recursive ?? false;
 
   useEffect(() => {
     if (!cardId || !folderPath) return;
@@ -319,8 +320,9 @@ export function ViewerPage() {
       isRestore ? appState.lastImageIndex : 0,
       isRestore ? appState.hFlipEnabled : false,
       isRestore ? appState.shuffleEnabled : false,
+      recursive,
     );
-  }, [cardId, cardTitle, folderPath, loadImages]); // currentProfileは意図的に依存配列から除外
+  }, [cardId, cardTitle, folderPath, recursive, loadImages]); // currentProfileは意図的に依存配列から除外
 
   // プロファイルが読み込まれていない場合はStartupPageへ
   useEffect(() => {

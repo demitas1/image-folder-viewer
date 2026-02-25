@@ -24,6 +24,7 @@ interface AddCardInput {
   folderPath: string;
   title: string;
   thumbnail: string | null;
+  recursive: boolean;
 }
 
 // カード更新時の入力データ（部分更新）
@@ -31,6 +32,7 @@ interface UpdateCardInput {
   title?: string;
   folderPath?: string;
   thumbnail?: string | null;
+  recursive?: boolean;
 }
 
 interface ProfileState {
@@ -273,6 +275,7 @@ export const useProfileStore = create<ProfileState & ProfileActions>(
         title: input.title,
         folderPath: input.folderPath,
         thumbnail: input.thumbnail,
+        recursive: input.recursive,
         sortOrder: maxSortOrder + 1,
         createdAt: now,
         updatedAt: now,

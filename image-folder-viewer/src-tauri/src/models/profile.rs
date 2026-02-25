@@ -13,6 +13,9 @@ pub struct Card {
     pub sort_order: i32,
     pub created_at: String,
     pub updated_at: String,
+    /// サブディレクトリを含めて画像を検索するか（省略時 false、既存プロファイルとの後方互換）
+    #[serde(default)]
+    pub recursive: bool,
 }
 
 /// カード（検証結果付き）

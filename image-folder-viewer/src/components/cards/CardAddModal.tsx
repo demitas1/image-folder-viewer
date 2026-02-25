@@ -35,6 +35,7 @@ export const CardAddModal = ({ isOpen, onClose, onAdd }: CardAddModalProps) => {
   const [title, setTitle] = useState("");
   const [thumbnailPath, setThumbnailPath] = useState<string | null>(null);
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
+  const [recursive, setRecursive] = useState(false);
 
   // ローディング状態
   const [isSelectingFolder, setIsSelectingFolder] = useState(false);
@@ -51,6 +52,7 @@ export const CardAddModal = ({ isOpen, onClose, onAdd }: CardAddModalProps) => {
       setTitle("");
       setThumbnailPath(null);
       setThumbnailUrl(null);
+      setRecursive(false);
       setError(null);
     }
   }, [isOpen]);
@@ -124,6 +126,7 @@ export const CardAddModal = ({ isOpen, onClose, onAdd }: CardAddModalProps) => {
     }
   };
 
+
   // サムネイル変更
   const handleChangeThumbnail = async () => {
     setError(null);
@@ -146,6 +149,7 @@ export const CardAddModal = ({ isOpen, onClose, onAdd }: CardAddModalProps) => {
       folderPath,
       title: title.trim(),
       thumbnail: thumbnailPath,
+      recursive,
     });
     onClose();
   };
@@ -215,6 +219,15 @@ export const CardAddModal = ({ isOpen, onClose, onAdd }: CardAddModalProps) => {
           <div className="text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded border border-gray-200 truncate">
             {folderPath}
           </div>
+          <label className="flex items-center gap-2 mt-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={recursive}
+              onChange={(e) => setRecursive(e.target.checked)}
+              className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span className="text-sm text-gray-600">サブディレクトリの画像を含める</span>
+          </label>
         </div>
 
         {/* タイトル */}

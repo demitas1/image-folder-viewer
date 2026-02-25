@@ -40,7 +40,8 @@ interface ViewerActions {
     folderPath: string,
     initialIndex?: number,
     hFlip?: boolean,
-    shuffle?: boolean
+    shuffle?: boolean,
+    recursive?: boolean
   ) => Promise<void>;
 
   // ナビゲーション
@@ -106,11 +107,11 @@ export const useViewerStore = create<ViewerState & ViewerActions>((set, get) => 
   ...initialState,
 
   // 画像一覧を読み込む
-  loadImages: async (cardId, cardTitle, folderPath, initialIndex = 0, hFlip = false, shuffle = false) => {
+  loadImages: async (cardId, cardTitle, folderPath, initialIndex = 0, hFlip = false, shuffle = false, recursive = false) => {
     set({ isLoading: true, error: null });
 
     try {
-      const images = await getImagesInFolder(folderPath);
+      const images = await getImagesInFolder(folderPath, recursive);
 
       if (images.length === 0) {
         set({

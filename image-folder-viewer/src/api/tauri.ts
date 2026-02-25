@@ -137,9 +137,10 @@ export async function getThumbnail(
  * @returns 最初の画像ファイルパス、画像がない場合はnull
  */
 export async function getFirstImageInFolder(
-  folderPath: string
+  folderPath: string,
+  recursive: boolean = false
 ): Promise<string | null> {
-  return invoke<string | null>("get_first_image_in_folder", { folderPath });
+  return invoke<string | null>("get_first_image_in_folder", { folderPath, recursive });
 }
 
 /**
@@ -157,9 +158,10 @@ export async function validateFolderPath(path: string): Promise<boolean> {
  * @returns 画像ファイル情報の配列
  */
 export async function getImagesInFolder(
-  folderPath: string
+  folderPath: string,
+  recursive: boolean = false
 ): Promise<ImageFile[]> {
-  return invoke<ImageFile[]>("get_images_in_folder", { folderPath });
+  return invoke<ImageFile[]>("get_images_in_folder", { folderPath, recursive });
 }
 
 // ========================================
