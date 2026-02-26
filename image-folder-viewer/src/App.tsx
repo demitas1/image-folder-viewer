@@ -6,6 +6,8 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { IndexPage } from "./pages/IndexPage";
 import { ViewerPage } from "./pages/ViewerPage";
 import { StartupPage } from "./pages/StartupPage";
+import { Toast } from "./components/common/Toast";
+import { ToastTest } from "./components/common/ToastTest";
 import { useProfileStore } from "./store/profileStore";
 import { saveProfile } from "./api/tauri";
 
@@ -51,13 +53,17 @@ function App() {
   }, []);
 
   return (
-    <Routes>
-      <Route path="/startup" element={<StartupPage />} />
-      <Route path="/" element={<IndexPage />} />
-      <Route path="/viewer/:cardId" element={<ViewerPage />} />
-      {/* 未知のパスはStartupPageへリダイレクト */}
-      <Route path="*" element={<Navigate to="/startup" replace />} />
-    </Routes>
+    <>
+      <Routes>
+        <Route path="/startup" element={<StartupPage />} />
+        <Route path="/" element={<IndexPage />} />
+        <Route path="/viewer/:cardId" element={<ViewerPage />} />
+        {/* 未知のパスはStartupPageへリダイレクト */}
+        <Route path="*" element={<Navigate to="/startup" replace />} />
+      </Routes>
+      <Toast />
+      {import.meta.env.DEV && <ToastTest />}
+    </>
   );
 }
 

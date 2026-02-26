@@ -10,9 +10,9 @@ use std::path::Path;
 use std::sync::Mutex;
 
 /// グローバルClipboardインスタンス（Linux/X11対策）
-static CLIPBOARD: Lazy<Mutex<Clipboard>> = Lazy::new(|| {
-    Mutex::new(Clipboard::new().expect("クリップボードの初期化に失敗しました"))
-});
+/// 初期化失敗時は None を格納し、各コマンドでエラーとして返す
+static CLIPBOARD: Lazy<Mutex<Option<Clipboard>>> =
+    Lazy::new(|| Mutex::new(Clipboard::new().ok()));
 
 /// 画像をクリップボードにコピー
 #[tauri::command]
@@ -34,9 +34,12 @@ pub fn copy_image_to_clipboard(image_path: String) -> Result<(), String> {
     let (width, height) = rgba.dimensions();
 
     // クリップボードに設定
-    let mut clipboard = CLIPBOARD
+    let mut clipboard_guard = CLIPBOARD
         .lock()
         .map_err(|e| format!("クリップボードのロックに失敗しました: {}", e))?;
+    let clipboard = clipboard_guard
+        .as_mut()
+        .ok_or_else(|| "クリップボードが利用できません".to_string())?;
 
     let image_data = arboard::ImageData {
         width: width as usize,
@@ -54,9 +57,12 @@ pub fn copy_image_to_clipboard(image_path: String) -> Result<(), String> {
 /// テキストをクリップボードにコピー（パスコピー用）
 #[tauri::command]
 pub fn copy_text_to_clipboard(text: String) -> Result<(), String> {
-    let mut clipboard = CLIPBOARD
+    let mut clipboard_guard = CLIPBOARD
         .lock()
         .map_err(|e| format!("クリップボードのロックに失敗しました: {}", e))?;
+    let clipboard = clipboard_guard
+        .as_mut()
+        .ok_or_else(|| "クリップボードが利用できません".to_string())?;
 
     clipboard
         .set_text(text)
