@@ -20,6 +20,7 @@ import {
   useViewerStore,
 } from "../store/viewerStore";
 import { copyImageToClipboard, copyTextToClipboard } from "../api/tauri";
+import { useToastStore } from "../store/toastStore";
 
 // フィットズーム率を計算
 function calculateFitZoom(displayW: number, displayH: number, imageW: number, imageH: number): number {
@@ -47,6 +48,7 @@ export function ViewerPage() {
   const error = useViewerStore((state) => state.error);
   const zoomLevel = useViewerStore((state) => state.zoomLevel);
   const originalImageSize = useViewerStore((state) => state.originalImageSize);
+  const addToast = useToastStore((state) => state.addToast);
 
   // コンテキストメニュー状態
   const [contextMenu, setContextMenu] = useState<{
@@ -272,10 +274,10 @@ export function ViewerPage() {
       useProfileStore.getState();
     if (profile && path) {
       saveProfile(path, profile).catch((e) =>
-        console.error("プロファイル保存に失敗:", e)
+        addToast(`プロファイルの保存に失敗しました: ${e}`, "error")
       );
     }
-  }, [updateAppState]);
+  }, [updateAppState, addToast]);
 
   // 画像表示・オプション変更時にビューア状態を保存
   useEffect(() => {
@@ -293,13 +295,13 @@ export function ViewerPage() {
       useProfileStore.getState();
     if (profile && path) {
       saveProfile(path, profile).catch((e) =>
-        console.error("プロファイル保存に失敗:", e)
+        addToast(`プロファイルの保存に失敗しました: ${e}`, "error")
       );
     }
 
     reset();
     navigate("/");
-  }, [navigate, reset, updateAppState]);
+  }, [navigate, reset, updateAppState, addToast]);
 
   // 画像一覧の読み込み（プリミティブ値を依存配列に使用し、不要な再読み込みを防止）
   const cardTitle = card?.title ?? "";
@@ -428,18 +430,18 @@ export function ViewerPage() {
         label: "コピー",
         shortcut: "",
         onClick: () => {
-          copyImageToClipboard(imagePath).catch((e) =>
-            console.error("画像コピーに失敗:", e)
-          );
+          copyImageToClipboard(imagePath)
+            .then(() => addToast("画像をクリップボードにコピーしました", "success"))
+            .catch((e) => addToast(`画像のコピーに失敗しました: ${e}`, "error"));
         },
       });
       items.push({
         label: "パスをコピー",
         shortcut: "",
         onClick: () => {
-          copyTextToClipboard(imagePath).catch((e) =>
-            console.error("パスコピーに失敗:", e)
-          );
+          copyTextToClipboard(imagePath)
+            .then(() => addToast("パスをクリップボードにコピーしました", "success"))
+            .catch((e) => addToast(`パスのコピーに失敗しました: ${e}`, "error"));
         },
       });
     }
@@ -489,7 +491,7 @@ export function ViewerPage() {
     });
 
     return items;
-  }, [imagePath, hFlipEnabled, shuffleEnabled, toggleHFlip, toggleShuffle, handleZoomIn, handleZoomOut, handleResetZoom, handleBack]);
+  }, [imagePath, hFlipEnabled, shuffleEnabled, toggleHFlip, toggleShuffle, handleZoomIn, handleZoomOut, handleResetZoom, handleBack, addToast]);
 
   // カードが見つからない場合
   if (!card) {
