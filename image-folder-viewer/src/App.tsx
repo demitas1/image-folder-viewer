@@ -7,6 +7,7 @@ import { IndexPage } from "./pages/IndexPage";
 import { ViewerPage } from "./pages/ViewerPage";
 import { StartupPage } from "./pages/StartupPage";
 import { Toast } from "./components/common/Toast";
+import { ToastTest } from "./components/common/ToastTest";
 import { useProfileStore } from "./store/profileStore";
 import { saveProfile } from "./api/tauri";
 
@@ -61,6 +62,7 @@ function App() {
         <Route path="*" element={<Navigate to="/startup" replace />} />
       </Routes>
       <Toast />
+      {import.meta.env.DEV && <ToastTest />}
     </>
   );
 }
