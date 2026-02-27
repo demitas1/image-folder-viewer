@@ -265,6 +265,7 @@ export function ViewerPage() {
       lastPage: "viewer",
       lastCardId: viewerState.cardId,
       lastImageIndex: imageIndex,
+      lastImageFilename: viewerState.images[imageIndex]?.filename,
       hFlipEnabled: viewerState.hFlipEnabled,
       shuffleEnabled: viewerState.shuffleEnabled,
     });
@@ -323,6 +324,7 @@ export function ViewerPage() {
       isRestore ? appState.hFlipEnabled : false,
       isRestore ? appState.shuffleEnabled : false,
       recursive,
+      isRestore ? appState.lastImageFilename : undefined,
     );
   }, [cardId, cardTitle, folderPath, recursive, loadImages]); // currentProfileは意図的に依存配列から除外
 
@@ -339,6 +341,16 @@ export function ViewerPage() {
       navigate("/");
     }
   }, [currentProfile, card, navigate]);
+
+  // 画像読み込みエラー時はトーストを表示してIndexPageへ自動遷移（#9）
+  // updateAppState で lastPage を "index" にリセットしないと、IndexPage が再び ViewerPage に戻してしまう
+  useEffect(() => {
+    if (!error) return;
+    addToast(error, "error");
+    updateAppState({ lastPage: "index" });
+    reset();
+    navigate("/");
+  }, [error, addToast, navigate, updateAppState, reset]);
 
   // キーボードショートカット
   useEffect(() => {

@@ -41,7 +41,8 @@ interface ViewerActions {
     initialIndex?: number,
     hFlip?: boolean,
     shuffle?: boolean,
-    recursive?: boolean
+    recursive?: boolean,
+    targetFilename?: string
   ) => Promise<void>;
 
   // ナビゲーション
@@ -107,7 +108,7 @@ export const useViewerStore = create<ViewerState & ViewerActions>((set, get) => 
   ...initialState,
 
   // 画像一覧を読み込む
-  loadImages: async (cardId, cardTitle, folderPath, initialIndex = 0, hFlip = false, shuffle = false, recursive = false) => {
+  loadImages: async (cardId, cardTitle, folderPath, initialIndex = 0, hFlip = false, shuffle = false, recursive = false, targetFilename?: string) => {
     set({ isLoading: true, error: null });
 
     try {
@@ -125,8 +126,26 @@ export const useViewerStore = create<ViewerState & ViewerActions>((set, get) => 
         return;
       }
 
+      // ファイル名指定がある場合はファイル名でマッチング（復元時）
+      let resolvedIndex = initialIndex;
+      if (targetFilename) {
+        const found = images.findIndex((img) => img.filename === targetFilename);
+        if (found === -1) {
+          set({
+            ...initialState,
+            cardId,
+            cardTitle,
+            folderPath,
+            error: `前回の画像が見つかりません: ${targetFilename}`,
+            isLoading: false,
+          });
+          return;
+        }
+        resolvedIndex = found;
+      }
+
       // 初期インデックスを範囲内に収める
-      const validIndex = Math.max(0, Math.min(initialIndex, images.length - 1));
+      const validIndex = Math.max(0, Math.min(resolvedIndex, images.length - 1));
 
       // シャッフルが有効な場合はインデックス配列を生成
       const shuffledIndices = shuffle
