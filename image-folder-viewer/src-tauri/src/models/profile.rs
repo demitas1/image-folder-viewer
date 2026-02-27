@@ -73,6 +73,8 @@ pub struct AppState {
     pub last_page: String, // "index" | "viewer"
     pub last_card_id: Option<String>,
     pub last_image_index: i32,
+    #[serde(default)]
+    pub last_image_filename: Option<String>,
     pub h_flip_enabled: bool,
     pub shuffle_enabled: bool,
     pub window: WindowState,
@@ -84,6 +86,7 @@ impl Default for AppState {
             last_page: "index".to_string(),
             last_card_id: None,
             last_image_index: 0,
+            last_image_filename: None,
             h_flip_enabled: false,
             shuffle_enabled: false,
             window: WindowState::default(),

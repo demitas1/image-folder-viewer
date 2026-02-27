@@ -45,6 +45,7 @@ export interface AppState {
   lastPage: "index" | "viewer";
   lastCardId: string | null;
   lastImageIndex: number;
+  lastImageFilename?: string;
   hFlipEnabled: boolean;
   shuffleEnabled: boolean;
   window: WindowState;
