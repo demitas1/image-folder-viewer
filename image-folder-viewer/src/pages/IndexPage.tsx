@@ -8,6 +8,7 @@ import { CardGrid, type CardValidation } from "../components/cards/CardGrid";
 import { CardAddModal } from "../components/cards/CardAddModal";
 import { CardEditModal } from "../components/cards/CardEditModal";
 import { Spinner } from "../components/common/Spinner";
+import { ConfirmModal } from "../components/common/ConfirmModal";
 import {
   useProfileStore,
   useCards,
@@ -45,6 +46,7 @@ export function IndexPage() {
   // モーダル状態
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingCard, setEditingCard] = useState<Card | null>(null);
+  const [deletingCard, setDeletingCard] = useState<Card | null>(null);
 
   // 選択状態
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
@@ -173,17 +175,19 @@ export function IndexPage() {
     setEditingCard(card);
   }, []);
 
-  // カード削除
-  const handleCardDelete = useCallback(
-    (card: Card) => {
-      if (window.confirm(`「${card.title}」を削除しますか？`)) {
-        deleteCard(card.id);
-        // 自動保存
-        saveCurrentProfile();
-      }
-    },
-    [deleteCard, saveCurrentProfile]
-  );
+  // カード削除（確認モーダルを表示）
+  const handleCardDelete = useCallback((card: Card) => {
+    setDeletingCard(card);
+  }, []);
+
+  // カード削除確認後の実行
+  const handleCardDeleteConfirm = useCallback(() => {
+    if (!deletingCard) return;
+    deleteCard(deletingCard.id);
+    // 自動保存
+    saveCurrentProfile();
+    setDeletingCard(null);
+  }, [deletingCard, deleteCard, saveCurrentProfile]);
 
   // カード追加
   const handleAddCard = useCallback(
@@ -228,7 +232,7 @@ export function IndexPage() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // モーダルが開いている場合は無視
-      if (isAddModalOpen || editingCard) return;
+      if (isAddModalOpen || editingCard || deletingCard) return;
 
       // Ctrl+S: 保存
       if (e.ctrlKey && e.key === "s") {
@@ -313,6 +317,7 @@ export function IndexPage() {
   }, [
     isAddModalOpen,
     editingCard,
+    deletingCard,
     saveCurrentProfile,
     selectedCardId,
     cards,
@@ -398,6 +403,16 @@ export function IndexPage() {
         card={editingCard}
         isValid={editingCardValidation}
         onSave={handleUpdateCard}
+      />
+
+      {/* カード削除確認モーダル */}
+      <ConfirmModal
+        isOpen={deletingCard !== null}
+        onClose={() => setDeletingCard(null)}
+        onConfirm={handleCardDeleteConfirm}
+        title="カードの削除"
+        message={`「${deletingCard?.title}」を削除しますか？`}
+        confirmLabel="削除"
       />
     </div>
   );
