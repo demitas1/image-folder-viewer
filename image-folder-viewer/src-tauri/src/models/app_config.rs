@@ -9,7 +9,7 @@ fn default_max_recent_profiles() -> i32 {
     10
 }
 fn default_theme() -> String {
-    "system".to_string()
+    "dark".to_string()
 }
 fn default_true() -> bool {
     true
@@ -41,7 +41,7 @@ pub struct AppConfig {
     /// 履歴の最大保持数
     #[serde(default = "default_max_recent_profiles")]
     pub max_recent_profiles: i32,
-    /// テーマ設定 ("light" | "dark" | "system")
+    /// テーマ設定 ("light" | "dark")
     #[serde(default = "default_theme")]
     pub theme: String,
     /// 起動時にウィンドウを最前面に表示する（Linux のフォーカス盗み防止対策）

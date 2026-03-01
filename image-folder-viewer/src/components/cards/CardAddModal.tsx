@@ -160,16 +160,16 @@ export const CardAddModal = ({ isOpen, onClose, onAdd }: CardAddModalProps) => {
       <Modal isOpen={isOpen} onClose={onClose} title="新規カード作成" width="sm">
         <div className="flex flex-col items-center justify-center py-8 gap-4">
           {error && (
-            <div className="w-full flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
+            <div className="w-full flex items-start gap-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-red-700 dark:text-red-400 text-sm">
               <AlertTriangle size={18} className="flex-shrink-0 mt-0.5" />
               <span>{error}</span>
             </div>
           )}
           {isSelectingFolder ? (
-            <div className="text-gray-500">フォルダを選択してください...</div>
+            <div className="text-gray-500 dark:text-gray-400">フォルダを選択してください...</div>
           ) : (
             <>
-              <FolderOpen size={48} className="text-gray-300" />
+              <FolderOpen size={48} className="text-gray-300 dark:text-gray-600" />
               <Button variant="primary" onClick={handleSelectFolder}>
                 フォルダを選択
               </Button>
@@ -205,7 +205,7 @@ export const CardAddModal = ({ isOpen, onClose, onAdd }: CardAddModalProps) => {
       <div className="space-y-4">
         {/* エラーメッセージ */}
         {error && (
-          <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
+          <div className="flex items-start gap-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-red-700 dark:text-red-400 text-sm">
             <AlertTriangle size={18} className="flex-shrink-0 mt-0.5" />
             <span>{error}</span>
           </div>
@@ -213,10 +213,10 @@ export const CardAddModal = ({ isOpen, onClose, onAdd }: CardAddModalProps) => {
 
         {/* フォルダパス */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             フォルダ
           </label>
-          <div className="text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded border border-gray-200 truncate">
+          <div className="text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 px-3 py-2 rounded border border-gray-200 dark:border-gray-600 truncate">
             {folderPath}
           </div>
           <label className="flex items-center gap-2 mt-2 cursor-pointer select-none">
@@ -226,7 +226,7 @@ export const CardAddModal = ({ isOpen, onClose, onAdd }: CardAddModalProps) => {
               onChange={(e) => setRecursive(e.target.checked)}
               className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
             />
-            <span className="text-sm text-gray-600">サブディレクトリの画像を含める</span>
+            <span className="text-sm text-gray-600 dark:text-gray-400">サブディレクトリの画像を含める</span>
           </label>
         </div>
 
@@ -234,7 +234,7 @@ export const CardAddModal = ({ isOpen, onClose, onAdd }: CardAddModalProps) => {
         <div>
           <label
             htmlFor="card-title"
-            className="block text-sm font-medium text-gray-700 mb-1"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
           >
             タイトル
           </label>
@@ -243,7 +243,7 @@ export const CardAddModal = ({ isOpen, onClose, onAdd }: CardAddModalProps) => {
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             placeholder="カードのタイトル"
             autoFocus
           />
@@ -251,14 +251,14 @@ export const CardAddModal = ({ isOpen, onClose, onAdd }: CardAddModalProps) => {
 
         {/* サムネイル */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             サムネイル
           </label>
           <div className="flex items-start gap-4">
             {/* プレビュー */}
-            <div className="w-24 h-24 bg-gray-100 rounded border border-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
+            <div className="w-24 h-24 bg-gray-100 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 flex items-center justify-center overflow-hidden flex-shrink-0">
               {isLoadingThumbnail ? (
-                <div className="animate-pulse bg-gray-200 w-full h-full" />
+                <div className="animate-pulse bg-gray-200 dark:bg-gray-600 w-full h-full" />
               ) : thumbnailUrl ? (
                 <img
                   src={thumbnailUrl}
@@ -266,7 +266,7 @@ export const CardAddModal = ({ isOpen, onClose, onAdd }: CardAddModalProps) => {
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <ImageIcon size={32} className="text-gray-300" />
+                <ImageIcon size={32} className="text-gray-300 dark:text-gray-600" />
               )}
             </div>
 
@@ -275,7 +275,7 @@ export const CardAddModal = ({ isOpen, onClose, onAdd }: CardAddModalProps) => {
               <Button variant="secondary" onClick={handleChangeThumbnail}>
                 変更...
               </Button>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
                 任意の画像ファイルを選択できます
               </p>
             </div>

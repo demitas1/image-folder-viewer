@@ -76,20 +76,20 @@ export const Modal = ({
       onClick={handleOverlayClick}
     >
       <div
-        className={`${widthClasses[width]} w-full mx-4 bg-white rounded-lg shadow-xl`}
+        className={`${widthClasses[width]} w-full mx-4 bg-white dark:bg-gray-800 rounded-lg shadow-xl`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
       >
         {/* ヘッダー */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-          <h2 id="modal-title" className="text-lg font-semibold text-gray-900">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+          <h2 id="modal-title" className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             {title}
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+            className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:text-gray-500 dark:hover:text-gray-300 dark:hover:bg-gray-700 rounded transition-colors"
             aria-label="閉じる"
           >
             <X size={20} />
@@ -101,7 +101,7 @@ export const Modal = ({
 
         {/* フッター */}
         {footer && (
-          <div className="px-4 py-3 border-t border-gray-200 flex justify-end gap-2">
+          <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-2">
             {footer}
           </div>
         )}
@@ -123,7 +123,7 @@ interface ButtonProps {
 const variantClasses = {
   primary: "bg-blue-600 text-white hover:bg-blue-700 disabled:bg-blue-300",
   secondary:
-    "bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:bg-gray-50 disabled:text-gray-400",
+    "bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:bg-gray-50 disabled:text-gray-400 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 dark:disabled:bg-gray-800 dark:disabled:text-gray-500",
   danger: "bg-red-600 text-white hover:bg-red-700 disabled:bg-red-300",
 };
 

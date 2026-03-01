@@ -89,7 +89,7 @@ export const CardItem = ({
 
   // スタイルクラス
   const containerClasses = [
-    "group relative flex flex-col rounded-lg overflow-hidden bg-white shadow transition-all",
+    "group relative flex flex-col rounded-lg overflow-hidden bg-white dark:bg-gray-800 shadow transition-all",
     isSelected ? "ring-2 ring-blue-500" : "",
     isValid ? "cursor-pointer hover:shadow-lg" : "cursor-not-allowed",
     !isValid ? "ring-2 ring-red-400" : "",
@@ -106,11 +106,11 @@ export const CardItem = ({
       {...dragHandleProps}
     >
       {/* サムネイル領域 */}
-      <div className="relative aspect-square bg-gray-100 flex items-center justify-center overflow-hidden">
+      <div className="relative aspect-square bg-gray-100 dark:bg-gray-700 flex items-center justify-center overflow-hidden">
         {isValid ? (
           isLoadingThumbnail ? (
             // ローディング
-            <div className="animate-pulse bg-gray-200 w-full h-full" />
+            <div className="animate-pulse bg-gray-200 dark:bg-gray-600 w-full h-full" />
           ) : thumbnailUrl ? (
             // サムネイル画像
             <img
@@ -120,7 +120,7 @@ export const CardItem = ({
             />
           ) : (
             // 画像なし
-            <ImageIcon size={48} className="text-gray-300" />
+            <ImageIcon size={48} className="text-gray-300 dark:text-gray-600" />
           )
         ) : (
           // エラー状態
@@ -132,10 +132,10 @@ export const CardItem = ({
       </div>
 
       {/* タイトル・操作ボタン領域 */}
-      <div className="p-2 border-t border-gray-100">
+      <div className="p-2 border-t border-gray-100 dark:border-gray-700">
         <div className="flex items-center justify-between gap-2">
           {/* タイトル */}
-          <span className="text-sm font-medium text-gray-700 truncate flex-1">
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate flex-1">
             {card.title}
           </span>
 
@@ -144,7 +144,7 @@ export const CardItem = ({
             <button
               type="button"
               onClick={handleEdit}
-              className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+              className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:text-gray-500 dark:hover:text-blue-400 dark:hover:bg-blue-900 rounded transition-colors"
               title="編集"
             >
               <Pencil size={16} />
@@ -152,7 +152,7 @@ export const CardItem = ({
             <button
               type="button"
               onClick={handleDelete}
-              className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+              className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:text-gray-500 dark:hover:text-red-400 dark:hover:bg-red-900 rounded transition-colors"
               title="削除"
             >
               <Trash2 size={16} />
