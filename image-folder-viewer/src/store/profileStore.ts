@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import type { ProfileData, AppConfig, RecentProfile, Card, AppState } from "../types";
+import { applyTheme, type Theme } from "../utils/theme";
 import {
   loadProfile,
   saveProfile,
@@ -103,6 +104,8 @@ export const useProfileStore = create<ProfileState & ProfileActions>(
       try {
         const initialState = await getInitialState();
 
+        applyTheme((initialState.appConfig.theme ?? "dark") as Theme);
+
         if (initialState.profile && initialState.profilePath) {
           // プロファイルが先読み済み: そのまま設定して直接 IndexPage へ
           set({
@@ -138,6 +141,7 @@ export const useProfileStore = create<ProfileState & ProfileActions>(
         const profile = await loadProfile(path);
         await addRecentProfile(path);
         const config = await getAppConfig();
+        applyTheme((config.theme ?? "dark") as Theme);
         set({
           currentProfile: profile,
           currentProfilePath: path,

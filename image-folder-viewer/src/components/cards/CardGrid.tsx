@@ -85,7 +85,7 @@ export const CardGrid = ({
 
   if (cards.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 text-gray-400">
+      <div className="flex flex-col items-center justify-center h-64 text-gray-400 dark:text-gray-500">
         <p className="text-lg">カードがありません</p>
         <p className="text-sm mt-2">Ctrl+N でカードを追加できます</p>
       </div>

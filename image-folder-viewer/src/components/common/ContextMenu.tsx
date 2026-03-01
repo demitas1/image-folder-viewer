@@ -73,21 +73,21 @@ export function ContextMenu({ items, x, y, onClose }: ContextMenuProps) {
     <div className="fixed inset-0 z-50" onClick={handleOverlayClick}>
       <div
         ref={menuRef}
-        className="absolute bg-gray-800 border border-gray-600 rounded-lg shadow-xl py-1 min-w-[180px]"
+        className="absolute bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-xl py-1 min-w-[180px]"
         style={{ left: x, top: y }}
       >
         {items.map((item, index) => (
           <div key={index}>
             {item.separator && (
-              <div className="border-t border-gray-600 my-1" />
+              <div className="border-t border-gray-200 dark:border-gray-600 my-1" />
             )}
             <button
-              className="w-full text-left px-4 py-1.5 text-sm text-gray-200 hover:bg-gray-700 flex justify-between items-center"
+              className="w-full text-left px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700 flex justify-between items-center"
               onClick={() => handleItemClick(item)}
             >
               <span>{item.label}</span>
               {item.shortcut && (
-                <span className="text-gray-500 text-xs ml-4">
+                <span className="text-gray-400 dark:text-gray-500 text-xs ml-4">
                   {item.shortcut}
                 </span>
               )}

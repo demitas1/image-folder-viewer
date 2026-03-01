@@ -179,7 +179,7 @@ export const CardEditModal = ({
       <div className="space-y-4">
         {/* 操作エラーメッセージ */}
         {error && (
-          <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
+          <div className="flex items-start gap-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-red-700 dark:text-red-400 text-sm">
             <AlertTriangle size={18} className="flex-shrink-0 mt-0.5" />
             <span>{error}</span>
           </div>
@@ -187,7 +187,7 @@ export const CardEditModal = ({
 
         {/* エラー状態の警告 */}
         {!isValid && !isFolderChanged && (
-          <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
+          <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-red-700 dark:text-red-400 text-sm">
             <AlertTriangle size={18} />
             <span>フォルダが見つかりません。パスを変更してください。</span>
           </div>
@@ -195,15 +195,15 @@ export const CardEditModal = ({
 
         {/* フォルダパス */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             フォルダ
           </label>
           <div className="flex items-center gap-2">
             <div
               className={`flex-1 text-sm px-3 py-2 rounded border truncate ${
                 !isValid && !isFolderChanged
-                  ? "bg-red-50 border-red-300 text-red-700"
-                  : "bg-gray-50 border-gray-200 text-gray-600"
+                  ? "bg-red-50 border-red-300 text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400"
+                  : "bg-gray-50 border-gray-200 text-gray-600 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-400"
               }`}
             >
               {folderPath}
@@ -213,7 +213,7 @@ export const CardEditModal = ({
               <button
                 type="button"
                 onClick={handleChangeFolder}
-                className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:text-gray-400 dark:hover:text-blue-400 dark:hover:bg-blue-900 rounded transition-colors"
                 title="フォルダを変更"
               >
                 <FolderOpen size={20} />
@@ -232,7 +232,7 @@ export const CardEditModal = ({
               onChange={(e) => setRecursive(e.target.checked)}
               className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
             />
-            <span className="text-sm text-gray-600">サブディレクトリの画像を含める</span>
+            <span className="text-sm text-gray-600 dark:text-gray-400">サブディレクトリの画像を含める</span>
           </label>
         </div>
 
@@ -240,7 +240,7 @@ export const CardEditModal = ({
         <div>
           <label
             htmlFor="edit-card-title"
-            className="block text-sm font-medium text-gray-700 mb-1"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
           >
             タイトル
           </label>
@@ -249,7 +249,7 @@ export const CardEditModal = ({
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             placeholder="カードのタイトル"
             autoFocus
           />
@@ -257,14 +257,14 @@ export const CardEditModal = ({
 
         {/* サムネイル */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             サムネイル
           </label>
           <div className="flex items-start gap-4">
             {/* プレビュー */}
-            <div className="w-24 h-24 bg-gray-100 rounded border border-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
+            <div className="w-24 h-24 bg-gray-100 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 flex items-center justify-center overflow-hidden flex-shrink-0">
               {isLoadingThumbnail ? (
-                <div className="animate-pulse bg-gray-200 w-full h-full" />
+                <div className="animate-pulse bg-gray-200 dark:bg-gray-600 w-full h-full" />
               ) : thumbnailUrl ? (
                 <img
                   src={thumbnailUrl}
@@ -272,7 +272,7 @@ export const CardEditModal = ({
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <ImageIcon size={32} className="text-gray-300" />
+                <ImageIcon size={32} className="text-gray-300 dark:text-gray-600" />
               )}
             </div>
 
@@ -285,7 +285,7 @@ export const CardEditModal = ({
               >
                 変更...
               </Button>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
                 任意の画像ファイルを選択できます
               </p>
             </div>
