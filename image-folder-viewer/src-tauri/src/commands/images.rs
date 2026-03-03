@@ -67,10 +67,13 @@ impl ThumbnailCache {
 /// サムネイルディスクキャッシュのサブディレクトリ名
 const THUMBNAIL_CACHE_DIR: &str = "thumbnails";
 
+/// キャッシュバージョン（フィルター変更時にインクリメントして既存キャッシュを無効化）
+const THUMBNAIL_CACHE_VERSION: u32 = 2;
+
 /// ディスクキャッシュのファイル名を計算（SHA-256ハッシュ）
 fn disk_cache_filename(image_path: &str, size: u32) -> String {
     let mut hasher = Sha256::new();
-    hasher.update(format!("{}:{}", image_path, size).as_bytes());
+    hasher.update(format!("{}:{}:v{}", image_path, size, THUMBNAIL_CACHE_VERSION).as_bytes());
     let hash = hasher.finalize();
     format!("{:x}.jpg", hash)
 }
@@ -158,7 +161,7 @@ pub fn get_thumbnail(app: AppHandle, image_path: String, size: u32) -> Result<St
         .decode()
         .map_err(|e| format!("画像のデコードに失敗しました: {}", e))?;
 
-    let thumbnail = img.thumbnail(size, size);
+    let thumbnail = img.resize(size, size, image::imageops::FilterType::Lanczos3);
 
     let mut buffer = Cursor::new(Vec::new());
     thumbnail
