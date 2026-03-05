@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Pencil, Trash2, AlertTriangle, ImageIcon } from "lucide-react";
-import { getThumbnail } from "../../api/tauri";
+import { fetchThumbnail } from "../../utils/thumbnailCache";
 import type { Card, ThumbnailAspectRatio } from "../../types";
 
 interface CardItemProps {
@@ -19,12 +19,8 @@ interface CardItemProps {
   isDragging?: boolean;
 }
 
-// アスペクト比ごとのサムネイルサイズ（長辺基準）
-const THUMBNAIL_SIZES: Record<ThumbnailAspectRatio, number> = {
-  "16:9": 480,
-  "4:3": 360,
-  "1:1": 270,
-};
+// サムネイルサイズ（全アスペクト比共通、フロントエンドCSSでトリミング）
+const THUMBNAIL_SIZE = 480;
 
 // アスペクト比ごとのTailwind CSSクラス
 const ASPECT_RATIO_CLASSES: Record<ThumbnailAspectRatio, string> = {
@@ -48,7 +44,6 @@ export const CardItem = ({
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [isLoadingThumbnail, setIsLoadingThumbnail] = useState(false);
 
-  const thumbnailSize = THUMBNAIL_SIZES[aspectRatio];
   const aspectClass = ASPECT_RATIO_CLASSES[aspectRatio];
 
   // サムネイル読み込み
@@ -61,7 +56,7 @@ export const CardItem = ({
     let cancelled = false;
     setIsLoadingThumbnail(true);
 
-    getThumbnail(card.thumbnail, thumbnailSize)
+    fetchThumbnail(card.thumbnail, THUMBNAIL_SIZE)
       .then((url) => {
         if (!cancelled) {
           setThumbnailUrl(url);
@@ -82,7 +77,7 @@ export const CardItem = ({
     return () => {
       cancelled = true;
     };
-  }, [card.thumbnail, isValid, thumbnailSize]);
+  }, [card.thumbnail, isValid]);
 
   // カードクリック
   const handleClick = () => {
