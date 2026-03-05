@@ -16,7 +16,15 @@ import {
   rectSortingStrategy,
 } from "@dnd-kit/sortable";
 import { SortableCardItem } from "./SortableCardItem";
-import type { Card } from "../../types";
+import type { Card, ThumbnailAspectRatio } from "../../types";
+
+// アスペクト比ごとのカード幅（固定値）
+// 16:9=480x270, 4:3=360x270, 1:1=270x270
+const GRID_CARD_WIDTH: Record<ThumbnailAspectRatio, number> = {
+  "16:9": 480,
+  "4:3": 360,
+  "1:1": 270,
+};
 
 // カードの有効性情報
 export interface CardValidation {
@@ -29,6 +37,7 @@ interface CardGridProps {
   cards: Card[];
   validations: Map<string, CardValidation>;
   selectedCardId: string | null;
+  aspectRatio?: ThumbnailAspectRatio;
   onCardClick: (card: Card) => void;
   onCardEdit: (card: Card) => void;
   onCardDelete: (card: Card) => void;
@@ -39,6 +48,7 @@ export const CardGrid = ({
   cards,
   validations,
   selectedCardId,
+  aspectRatio,
   onCardClick,
   onCardEdit,
   onCardDelete,
@@ -99,7 +109,10 @@ export const CardGrid = ({
       onDragEnd={handleDragEnd}
     >
       <SortableContext items={cardIds} strategy={rectSortingStrategy}>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 p-4">
+        <div
+          className="grid gap-4 p-4"
+          style={{ gridTemplateColumns: `repeat(auto-fill, ${GRID_CARD_WIDTH[aspectRatio ?? "16:9"]}px)` }}
+        >
           {cards.map((card) => {
             const validation = validations.get(card.id);
             const isValid = validation?.isValid ?? true;
@@ -112,6 +125,7 @@ export const CardGrid = ({
                 isValid={isValid}
                 errorMessage={errorMessage}
                 isSelected={card.id === selectedCardId}
+                aspectRatio={aspectRatio}
                 onClick={() => onCardClick(card)}
                 onEdit={() => onCardEdit(card)}
                 onDelete={() => onCardDelete(card)}

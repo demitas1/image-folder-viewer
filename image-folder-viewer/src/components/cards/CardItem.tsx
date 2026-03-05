@@ -3,13 +3,14 @@
 import { useState, useEffect } from "react";
 import { Pencil, Trash2, AlertTriangle, ImageIcon } from "lucide-react";
 import { getThumbnail } from "../../api/tauri";
-import type { Card } from "../../types";
+import type { Card, ThumbnailAspectRatio } from "../../types";
 
 interface CardItemProps {
   card: Card;
   isValid: boolean;
   errorMessage?: string;
   isSelected?: boolean;
+  aspectRatio?: ThumbnailAspectRatio;
   onClick?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
@@ -18,14 +19,26 @@ interface CardItemProps {
   isDragging?: boolean;
 }
 
-// サムネイルサイズ
-const THUMBNAIL_SIZE = 200;
+// アスペクト比ごとのサムネイルサイズ（長辺基準）
+const THUMBNAIL_SIZES: Record<ThumbnailAspectRatio, number> = {
+  "16:9": 480,
+  "4:3": 360,
+  "1:1": 270,
+};
+
+// アスペクト比ごとのTailwind CSSクラス
+const ASPECT_RATIO_CLASSES: Record<ThumbnailAspectRatio, string> = {
+  "16:9": "aspect-video",
+  "4:3": "aspect-[4/3]",
+  "1:1": "aspect-square",
+};
 
 export const CardItem = ({
   card,
   isValid,
   errorMessage,
   isSelected = false,
+  aspectRatio = "16:9",
   onClick,
   onEdit,
   onDelete,
@@ -34,6 +47,9 @@ export const CardItem = ({
 }: CardItemProps) => {
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [isLoadingThumbnail, setIsLoadingThumbnail] = useState(false);
+
+  const thumbnailSize = THUMBNAIL_SIZES[aspectRatio];
+  const aspectClass = ASPECT_RATIO_CLASSES[aspectRatio];
 
   // サムネイル読み込み
   useEffect(() => {
@@ -45,7 +61,7 @@ export const CardItem = ({
     let cancelled = false;
     setIsLoadingThumbnail(true);
 
-    getThumbnail(card.thumbnail, THUMBNAIL_SIZE)
+    getThumbnail(card.thumbnail, thumbnailSize)
       .then((url) => {
         if (!cancelled) {
           setThumbnailUrl(url);
@@ -66,7 +82,7 @@ export const CardItem = ({
     return () => {
       cancelled = true;
     };
-  }, [card.thumbnail, isValid]);
+  }, [card.thumbnail, isValid, thumbnailSize]);
 
   // カードクリック
   const handleClick = () => {
@@ -106,7 +122,7 @@ export const CardItem = ({
       {...dragHandleProps}
     >
       {/* サムネイル領域 */}
-      <div className="relative aspect-square bg-gray-100 dark:bg-gray-700 flex items-center justify-center overflow-hidden">
+      <div className={`relative ${aspectClass} bg-gray-100 dark:bg-gray-700 flex items-center justify-center overflow-hidden`}>
         {isValid ? (
           isLoadingThumbnail ? (
             // ローディング
