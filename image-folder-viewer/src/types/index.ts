@@ -68,6 +68,9 @@ export interface RecentProfile {
   lastOpenedAt: string;
 }
 
+// サムネイルのアスペクト比
+export type ThumbnailAspectRatio = "16:9" | "4:3" | "1:1";
+
 // アプリ共通設定
 export interface AppConfig {
   version: string;
@@ -76,6 +79,8 @@ export interface AppConfig {
   theme: "light" | "dark";
   /** 起動時にウィンドウを最前面に表示する（Linux のフォーカス盗み防止対策、デフォルト: true） */
   focusOnStartup: boolean;
+  /** サムネイルのアスペクト比（デフォルト: "16:9"） */
+  thumbnailAspectRatio: ThumbnailAspectRatio;
 }
 
 // 起動時初期状態（get_initial_state コマンドの戻り値）

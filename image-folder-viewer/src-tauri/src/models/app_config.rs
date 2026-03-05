@@ -14,6 +14,9 @@ fn default_theme() -> String {
 fn default_true() -> bool {
     true
 }
+fn default_thumbnail_aspect_ratio() -> String {
+    "16:9".to_string()
+}
 
 /// 最近使用したプロファイル
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -47,6 +50,9 @@ pub struct AppConfig {
     /// 起動時にウィンドウを最前面に表示する（Linux のフォーカス盗み防止対策）
     #[serde(default = "default_true")]
     pub focus_on_startup: bool,
+    /// サムネイルのアスペクト比 ("16:9" | "4:3" | "1:1")
+    #[serde(default = "default_thumbnail_aspect_ratio")]
+    pub thumbnail_aspect_ratio: String,
 }
 
 impl Default for AppConfig {
@@ -57,6 +63,7 @@ impl Default for AppConfig {
             max_recent_profiles: default_max_recent_profiles(),
             theme: default_theme(),
             focus_on_startup: default_true(),
+            thumbnail_aspect_ratio: default_thumbnail_aspect_ratio(),
         }
     }
 }

@@ -2,13 +2,14 @@
 
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
-import type { ProfileData, AppConfig, RecentProfile, Card, AppState } from "../types";
+import type { ProfileData, AppConfig, RecentProfile, Card, AppState, ThumbnailAspectRatio } from "../types";
 import { applyTheme, type Theme } from "../utils/theme";
 import {
   loadProfile,
   saveProfile,
   createNewProfile,
   getAppConfig,
+  saveAppConfig,
   getInitialState,
   addRecentProfile,
   removeRecentProfile,
@@ -75,6 +76,9 @@ interface ProfileActions {
 
   // appState更新
   updateAppState: (partial: Partial<AppState>) => void;
+
+  // サムネイル比率変更
+  updateThumbnailAspectRatio: (ratio: ThumbnailAspectRatio) => Promise<void>;
 
   // 履歴操作
   removeFromHistory: (path: string) => Promise<void>;
@@ -419,6 +423,15 @@ export const useProfileStore = create<ProfileState & ProfileActions>(
           updatedAt: now,
         },
       });
+    },
+
+    // サムネイル比率を変更して保存
+    updateThumbnailAspectRatio: async (ratio: ThumbnailAspectRatio) => {
+      const { appConfig } = get();
+      if (!appConfig) return;
+      const newConfig = { ...appConfig, thumbnailAspectRatio: ratio };
+      await saveAppConfig(newConfig);
+      set({ appConfig: newConfig });
     },
 
     // 履歴から削除

@@ -3,13 +3,14 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { CardItem } from "./CardItem";
-import type { Card } from "../../types";
+import type { Card, ThumbnailAspectRatio } from "../../types";
 
 interface SortableCardItemProps {
   card: Card;
   isValid: boolean;
   errorMessage?: string;
   isSelected?: boolean;
+  aspectRatio?: ThumbnailAspectRatio;
   onClick?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
@@ -20,6 +21,7 @@ export const SortableCardItem = ({
   isValid,
   errorMessage,
   isSelected,
+  aspectRatio,
   onClick,
   onEdit,
   onDelete,
@@ -46,6 +48,7 @@ export const SortableCardItem = ({
         isValid={isValid}
         errorMessage={errorMessage}
         isSelected={isSelected}
+        aspectRatio={aspectRatio}
         onClick={onClick}
         onEdit={onEdit}
         onDelete={onDelete}
