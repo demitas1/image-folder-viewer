@@ -80,6 +80,9 @@ interface ProfileActions {
   // サムネイル比率変更
   updateThumbnailAspectRatio: (ratio: ThumbnailAspectRatio) => Promise<void>;
 
+  // テーマ変更
+  updateTheme: (theme: Theme) => Promise<void>;
+
   // 履歴操作
   removeFromHistory: (path: string) => Promise<void>;
 
@@ -430,6 +433,16 @@ export const useProfileStore = create<ProfileState & ProfileActions>(
       const { appConfig } = get();
       if (!appConfig) return;
       const newConfig = { ...appConfig, thumbnailAspectRatio: ratio };
+      await saveAppConfig(newConfig);
+      set({ appConfig: newConfig });
+    },
+
+    // テーマを変更して保存
+    updateTheme: async (theme: Theme) => {
+      const { appConfig } = get();
+      if (!appConfig) return;
+      const newConfig = { ...appConfig, theme };
+      applyTheme(theme);
       await saveAppConfig(newConfig);
       set({ appConfig: newConfig });
     },

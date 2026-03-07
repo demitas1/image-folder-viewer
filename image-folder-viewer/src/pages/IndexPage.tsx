@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus } from "lucide-react";
+import { Plus, Settings } from "lucide-react";
 import type { ThumbnailAspectRatio } from "../types";
 import { ProfileSelector } from "../components/profile/ProfileSelector";
 import { CardGrid, type CardValidation } from "../components/cards/CardGrid";
@@ -10,6 +10,8 @@ import { CardAddModal } from "../components/cards/CardAddModal";
 import { CardEditModal } from "../components/cards/CardEditModal";
 import { Spinner } from "../components/common/Spinner";
 import { ConfirmModal } from "../components/common/ConfirmModal";
+import { SettingsPopover } from "../components/common/SettingsPopover";
+import type { Theme } from "../utils/theme";
 import {
   useProfileStore,
   useCards,
@@ -33,10 +35,14 @@ export function IndexPage() {
     initialized,
     isAutoOpening,
     updateThumbnailAspectRatio,
+    updateTheme,
   } = useProfileStore();
 
   const thumbnailAspectRatio = useProfileStore(
     useShallow((state) => (state.appConfig?.thumbnailAspectRatio ?? "16:9") as ThumbnailAspectRatio)
+  );
+  const currentTheme = useProfileStore(
+    (state) => (state.appConfig?.theme ?? "dark") as Theme
   );
   const cards = useCards();
   const { addCard, updateCard, deleteCard, reorderCards } = useCardActions();
@@ -44,6 +50,10 @@ export function IndexPage() {
 
   // 状態復元フラグ（一度だけ実行）
   const restoredRef = useRef(false);
+
+  // 設定パネル
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const settingsButtonRef = useRef<HTMLButtonElement>(null);
 
   // 起動時の初期化（前回プロファイルの自動オープンを含む）
   useEffect(() => {
@@ -355,24 +365,16 @@ export function IndexPage() {
             <ProfileSelector />
           </div>
           <div className="flex items-center space-x-2">
-            {/* サムネイル比率切替 */}
-            <div className="flex rounded border border-gray-300 dark:border-gray-600 overflow-hidden text-xs">
-              {(["16:9", "4:3", "1:1"] as ThumbnailAspectRatio[]).map((ratio) => (
-                <button
-                  key={ratio}
-                  type="button"
-                  onClick={() => updateThumbnailAspectRatio(ratio)}
-                  className={[
-                    "px-2 py-1 transition-colors",
-                    thumbnailAspectRatio === ratio
-                      ? "bg-blue-600 text-white"
-                      : "bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600",
-                  ].join(" ")}
-                >
-                  {ratio}
-                </button>
-              ))}
-            </div>
+            {/* 設定ボタン */}
+            <button
+              ref={settingsButtonRef}
+              type="button"
+              onClick={() => setIsSettingsOpen((v) => !v)}
+              className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+              title="設定"
+            >
+              <Settings size={20} />
+            </button>
             <button
               className="flex items-center gap-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
               onClick={() => setIsAddModalOpen(true)}
@@ -439,6 +441,15 @@ export function IndexPage() {
         title="カードの削除"
         message={`「${deletingCard?.title}」を削除しますか？`}
         confirmLabel="削除"
+      />
+      <SettingsPopover
+        anchorRef={settingsButtonRef}
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        theme={currentTheme}
+        aspectRatio={thumbnailAspectRatio}
+        onThemeChange={updateTheme}
+        onAspectRatioChange={updateThumbnailAspectRatio}
       />
     </div>
   );
