@@ -19,7 +19,9 @@ export function ProfileSelector() {
     openProfileWithDialog,
     createProfile,
     saveProfileAs,
+    saveCurrentProfile,
     closeProfile,
+    updateAppState,
     isLoading,
   } = useProfileStore();
 
@@ -41,9 +43,16 @@ export function ProfileSelector() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // 切替前に現在のプロファイルを保存する共通処理
+  const saveBeforeSwitch = async () => {
+    updateAppState({ lastPage: "index" });
+    await saveCurrentProfile();
+  };
+
   // プロファイルを開く（履歴から）
   const handleOpenRecent = async (path: string) => {
     setIsOpen(false);
+    await saveBeforeSwitch();
     try {
       await openProfile(path);
     } catch {
@@ -54,12 +63,14 @@ export function ProfileSelector() {
   // ダイアログでプロファイルを開く
   const handleOpenWithDialog = async () => {
     setIsOpen(false);
+    await saveBeforeSwitch();
     await openProfileWithDialog();
   };
 
   // 新規プロファイル作成
   const handleCreateNew = async () => {
     setIsOpen(false);
+    await saveBeforeSwitch();
     await createProfile();
   };
 
