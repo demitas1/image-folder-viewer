@@ -36,6 +36,7 @@ export function ViewerPage() {
   // プロファイルからカード情報を取得
   const currentProfile = useProfileStore((state) => state.currentProfile);
   const updateAppState = useProfileStore((state) => state.updateAppState);
+  const updateCardViewerState = useProfileStore((state) => state.updateCardViewerState);
   const card = currentProfile?.cards.find((c) => c.id === cardId) ?? null;
 
   // ビューアストア
@@ -253,17 +254,17 @@ export function ViewerPage() {
     };
   }, []);
 
-  // ビューア状態をappStateに保存し、プロファイルをディスクに書き出す
+  // ビューア状態をカード単位で保存し、プロファイルをディスクに書き出す
   const saveViewerState = useCallback(() => {
+    if (!cardId) return;
     const viewerState = useViewerStore.getState();
     // シャッフル時は元のインデックスを保存
     const imageIndex = viewerState.shuffledIndices
       ? viewerState.shuffledIndices[viewerState.currentIndex]
       : viewerState.currentIndex;
 
-    updateAppState({
-      lastPage: "viewer",
-      lastCardId: viewerState.cardId,
+    // カード固有状態 + appState.lastPage/lastCardId を同時更新
+    updateCardViewerState(cardId, {
       lastImageIndex: imageIndex,
       lastImageFilename: viewerState.images[imageIndex]?.filename,
       hFlipEnabled: viewerState.hFlipEnabled,
@@ -278,7 +279,7 @@ export function ViewerPage() {
         addToast(`プロファイルの保存に失敗しました: ${e}`, "error")
       );
     }
-  }, [updateAppState, addToast]);
+  }, [cardId, updateCardViewerState, addToast]);
 
   // 画像表示・オプション変更時にビューア状態を保存
   useEffect(() => {
@@ -312,21 +313,36 @@ export function ViewerPage() {
   useEffect(() => {
     if (!cardId || !folderPath) return;
 
-    // appStateから前回の状態を復元
+    // 復元優先順位:
+    // 1. カード固有のビューア状態（viewerState）があればそれを使用
+    // 2. 後方互換：viewerState未設定 & 起動時復元の場合は appState から読む
+    // 3. それ以外は初期値（index=0, hFlip/shuffle=false）
+    const cardViewerState = card?.viewerState;
     const appState = currentProfile?.appState;
-    const isRestore = appState?.lastPage === "viewer" && appState?.lastCardId === cardId;
+    const isLegacyRestore = !cardViewerState
+      && appState?.lastPage === "viewer"
+      && appState?.lastCardId === cardId;
+
+    const restoreIndex = cardViewerState?.lastImageIndex
+      ?? (isLegacyRestore ? appState!.lastImageIndex : 0);
+    const restoreHFlip = cardViewerState?.hFlipEnabled
+      ?? (isLegacyRestore ? appState!.hFlipEnabled : false);
+    const restoreShuffle = cardViewerState?.shuffleEnabled
+      ?? (isLegacyRestore ? appState!.shuffleEnabled : false);
+    const restoreFilename = cardViewerState?.lastImageFilename
+      ?? (isLegacyRestore ? appState!.lastImageFilename : undefined);
 
     loadImages(
       cardId,
       cardTitle,
       folderPath,
-      isRestore ? appState.lastImageIndex : 0,
-      isRestore ? appState.hFlipEnabled : false,
-      isRestore ? appState.shuffleEnabled : false,
+      restoreIndex,
+      restoreHFlip,
+      restoreShuffle,
       recursive,
-      isRestore ? appState.lastImageFilename : undefined,
+      restoreFilename,
     );
-  }, [cardId, cardTitle, folderPath, recursive, loadImages]); // currentProfileは意図的に依存配列から除外
+  }, [cardId, cardTitle, folderPath, recursive, loadImages]); // currentProfile/cardは意図的に依存配列から除外
 
   // プロファイルが読み込まれていない場合はStartupPageへ
   useEffect(() => {

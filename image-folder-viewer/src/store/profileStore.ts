@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
-import type { ProfileData, AppConfig, RecentProfile, Card, AppState, ThumbnailAspectRatio } from "../types";
+import type { ProfileData, AppConfig, RecentProfile, Card, AppState, CardViewerState, ThumbnailAspectRatio } from "../types";
 import { applyTheme, type Theme } from "../utils/theme";
 import {
   loadProfile,
@@ -76,6 +76,9 @@ interface ProfileActions {
 
   // appState更新
   updateAppState: (partial: Partial<AppState>) => void;
+
+  // カード固有ビューア状態の保存（appState.lastPage/lastCardIdも同時更新）
+  updateCardViewerState: (cardId: string, viewerState: CardViewerState) => void;
 
   // サムネイル比率変更
   updateThumbnailAspectRatio: (ratio: ThumbnailAspectRatio) => Promise<void>;
@@ -424,6 +427,31 @@ export const useProfileStore = create<ProfileState & ProfileActions>(
             ...partial,
           },
           updatedAt: now,
+        },
+      });
+    },
+
+    // カード固有ビューア状態を保存（appState.lastPage/lastCardIdも同時更新）
+    updateCardViewerState: (cardId: string, viewerState: CardViewerState) => {
+      const { currentProfile } = get();
+      if (!currentProfile) return;
+
+      const cardIndex = currentProfile.cards.findIndex((c) => c.id === cardId);
+      if (cardIndex === -1) return;
+
+      const newCards = [...currentProfile.cards];
+      newCards[cardIndex] = { ...newCards[cardIndex], viewerState };
+
+      set({
+        currentProfile: {
+          ...currentProfile,
+          cards: newCards,
+          appState: {
+            ...currentProfile.appState,
+            lastPage: "viewer",
+            lastCardId: cardId,
+          },
+          updatedAt: new Date().toISOString(),
         },
       });
     },
