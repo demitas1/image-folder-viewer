@@ -2,6 +2,20 @@
 
 use serde::{Deserialize, Serialize};
 
+/// カード固有のビューア状態
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CardViewerState {
+    #[serde(default)]
+    pub last_image_index: i32,
+    #[serde(default)]
+    pub last_image_filename: Option<String>,
+    #[serde(default)]
+    pub h_flip_enabled: bool,
+    #[serde(default)]
+    pub shuffle_enabled: bool,
+}
+
 /// カード情報
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -16,6 +30,9 @@ pub struct Card {
     /// サブディレクトリを含めて画像を検索するか（省略時 false、既存プロファイルとの後方互換）
     #[serde(default)]
     pub recursive: bool,
+    /// カード固有のビューア状態（省略時 None、既存プロファイルとの後方互換）
+    #[serde(default)]
+    pub viewer_state: Option<CardViewerState>,
 }
 
 /// カード（検証結果付き）

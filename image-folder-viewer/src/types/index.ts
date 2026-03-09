@@ -1,5 +1,13 @@
 // 型定義
 
+// カード固有のビューア状態
+export interface CardViewerState {
+  lastImageIndex: number;
+  lastImageFilename?: string;
+  hFlipEnabled: boolean;
+  shuffleEnabled: boolean;
+}
+
 // カード
 export interface Card {
   id: string;
@@ -11,6 +19,8 @@ export interface Card {
   updatedAt: string;
   /** サブディレクトリを含めて画像を検索するか */
   recursive: boolean;
+  /** カード固有のビューア状態（未設定時は undefined） */
+  viewerState?: CardViewerState;
 }
 
 // カード（検証結果付き）
