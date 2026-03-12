@@ -19,13 +19,14 @@ interface ModalProps {
   // オプション
   closeOnOverlay?: boolean; // オーバーレイクリックで閉じるか（デフォルト: true）
   closeOnEscape?: boolean; // ESCキーで閉じるか（デフォルト: true）
-  width?: "sm" | "md" | "lg"; // モーダル幅（デフォルト: md）
+  width?: "sm" | "md" | "lg" | "xl"; // モーダル幅（デフォルト: md）
 }
 
 const widthClasses = {
   sm: "max-w-sm",
   md: "max-w-md",
   lg: "max-w-lg",
+  xl: "max-w-xl",
 };
 
 export const Modal = ({

@@ -3,9 +3,9 @@
 import { useState, useEffect } from "react";
 import { ImageIcon, FolderOpen, AlertTriangle } from "lucide-react";
 import { Modal, Button } from "../common/Modal";
+import { ImagePickerModal } from "../common/ImagePickerModal";
 import {
   selectFolder,
-  selectImageFile,
   getThumbnail,
   getFirstImageInFolder,
 } from "../../api/tauri";
@@ -42,6 +42,9 @@ export const CardEditModal = ({
 
   // ローディング状態
   const [isLoadingThumbnail, setIsLoadingThumbnail] = useState(false);
+
+  // 画像ピッカー
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
 
   // エラー状態
   const [error, setError] = useState<string | null>(null);
@@ -113,17 +116,8 @@ export const CardEditModal = ({
   };
 
   // サムネイル変更
-  const handleChangeThumbnail = async () => {
-    setError(null);
-    try {
-      const path = await selectImageFile(folderPath);
-      if (path) {
-        setThumbnailPath(path);
-      }
-    } catch (e) {
-      console.error("画像選択エラー:", e);
-      setError(`画像の選択に失敗しました: ${e}`);
-    }
+  const handleChangeThumbnail = () => {
+    setIsPickerOpen(true);
   };
 
   // 保存
@@ -156,6 +150,7 @@ export const CardEditModal = ({
   if (!card) return null;
 
   return (
+    <>
     <Modal
       isOpen={isOpen}
       onClose={onClose}
@@ -293,5 +288,17 @@ export const CardEditModal = ({
         </div>
       </div>
     </Modal>
+
+    <ImagePickerModal
+      isOpen={isPickerOpen}
+      onClose={() => setIsPickerOpen(false)}
+      onSelect={(path) => {
+        setThumbnailPath(path);
+        setIsPickerOpen(false);
+      }}
+      folderPath={folderPath}
+      recursive={recursive}
+    />
+    </>
   );
 };
