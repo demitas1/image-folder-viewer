@@ -195,6 +195,12 @@ fn is_image_file(path: &Path) -> bool {
     if !path.is_file() {
         return false;
     }
+    // macOS AppleDouble リソースフォークファイル（._xxx）を除外
+    if let Some(name) = path.file_name() {
+        if name.to_string_lossy().starts_with("._") {
+            return false;
+        }
+    }
     if let Some(ext) = path.extension() {
         let ext_lower = ext.to_string_lossy().to_lowercase();
         return IMAGE_EXTENSIONS.contains(&ext_lower.as_str());
@@ -216,7 +222,14 @@ fn collect_images(dir: &Path, recursive: bool) -> Result<Vec<PathBuf>, String> {
         if is_image_file(&path) {
             result.push(path);
         } else if recursive && path.is_dir() {
-            dirs.push(path);
+            // macOS アーティファクトディレクトリ（__MACOSX）を除外
+            let skip = path
+                .file_name()
+                .map(|n| n == "__MACOSX")
+                .unwrap_or(false);
+            if !skip {
+                dirs.push(path);
+            }
         }
     }
 
