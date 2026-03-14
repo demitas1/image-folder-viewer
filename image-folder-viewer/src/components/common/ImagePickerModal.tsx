@@ -43,7 +43,9 @@ function useSequentialLoader(
   visibleRef.current = visiblePaths;
 
   // resetKey 変更時（フォルダ変更・モーダル再オープン）に状態リセット
+  // loadingRef もリセットすることで、前セッションのfetch待ち中でも新セッションが即開始できる
   useEffect(() => {
+    loadingRef.current = false;
     processedRef.current = new Set();
     setUrls({});
   }, [resetKey]);
@@ -69,10 +71,11 @@ function useSequentialLoader(
         setUrls((prev) => ({ ...prev, [path]: null }));
       }
 
-      loadingRef.current = false;
-
       // ブラウザのアイドル時間に次を処理（スクロール中は自動的に停止）
       // timeout: スクロールし続けても最大 200ms 以内には実行する（thumbnails の表示遅延上限）
+      // NOTE: idle 待機の前に false にすると setUrls() による再レンダーで useEffect が再発火し
+      //       loadingRef.current === false のまま次の processNext() が起動してしまうため、
+      //       必ず待機完了後に false にすること。
       await new Promise<void>((r) => {
         if (typeof requestIdleCallback !== "undefined") {
           requestIdleCallback(() => r(), { timeout: 200 });
@@ -80,6 +83,7 @@ function useSequentialLoader(
           setTimeout(r, 16);
         }
       });
+      loadingRef.current = false;
       processNext();
     };
 
