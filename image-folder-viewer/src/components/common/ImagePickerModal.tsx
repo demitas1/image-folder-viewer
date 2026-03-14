@@ -43,7 +43,9 @@ function useSequentialLoader(
   visibleRef.current = visiblePaths;
 
   // resetKey 変更時（フォルダ変更・モーダル再オープン）に状態リセット
+  // loadingRef もリセットすることで、前セッションのfetch待ち中でも新セッションが即開始できる
   useEffect(() => {
+    loadingRef.current = false;
     processedRef.current = new Set();
     setUrls({});
   }, [resetKey]);
