@@ -171,11 +171,13 @@ export const ImagePickerModal = ({
     overscan: 1,
   });
 
-  // 現在ビューポートに表示中のパス一覧
-  const visiblePaths = virtualizer.getVirtualItems().flatMap((virtualRow) => {
-    const startIdx = virtualRow.index * COLS;
-    return images.slice(startIdx, startIdx + COLS).map((img) => img.path);
-  });
+  // 現在ビューポートに表示中のパス一覧（クローズ時は空にしてロードを停止）
+  const visiblePaths = isOpen
+    ? virtualizer.getVirtualItems().flatMap((virtualRow) => {
+        const startIdx = virtualRow.index * COLS;
+        return images.slice(startIdx, startIdx + COLS).map((img) => img.path);
+      })
+    : [];
 
   // フォルダ変更・モーダル再オープン時にリセットするキー
   const resetKey = `${isOpen}:${folderPath}`;
