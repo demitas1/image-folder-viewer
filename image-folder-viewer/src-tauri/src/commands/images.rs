@@ -279,6 +279,27 @@ pub struct ImageFile {
     pub filename: String,
 }
 
+/// フォルダ内のサブフォルダ名一覧を取得（名前順ソート、隠しフォルダ除外）
+#[tauri::command]
+pub fn get_subfolders(folder_path: String) -> Result<Vec<String>, String> {
+    let path = Path::new(&folder_path);
+    let mut subdirs = Vec::new();
+    let entries = fs::read_dir(path).map_err(|e| e.to_string())?;
+    for entry in entries.flatten() {
+        let p = entry.path();
+        if p.is_dir() {
+            if let Some(name) = p.file_name().and_then(|n| n.to_str()) {
+                // 隠しフォルダ（.で始まる）は除外
+                if !name.starts_with('.') {
+                    subdirs.push(name.to_string());
+                }
+            }
+        }
+    }
+    subdirs.sort();
+    Ok(subdirs)
+}
+
 /// フォルダ内のすべての画像ファイルを取得（ファイル名順でソート、再帰オプション付き）
 #[tauri::command]
 pub fn get_images_in_folder(folder_path: String, recursive: bool) -> Result<Vec<ImageFile>, String> {

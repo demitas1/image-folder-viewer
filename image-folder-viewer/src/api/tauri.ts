@@ -164,6 +164,15 @@ export async function getImagesInFolder(
   return invoke<ImageFile[]>("get_images_in_folder", { folderPath, recursive });
 }
 
+/**
+ * フォルダ内のサブフォルダ名一覧を取得（名前順ソート、隠しフォルダ除外）
+ * @param folderPath フォルダパス
+ * @returns サブフォルダ名の配列
+ */
+export async function getSubfolders(folderPath: string): Promise<string[]> {
+  return invoke<string[]>("get_subfolders", { folderPath });
+}
+
 // ========================================
 // クリップボード
 // ========================================

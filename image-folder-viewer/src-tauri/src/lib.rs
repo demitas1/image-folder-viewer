@@ -26,6 +26,7 @@ use commands::{
     // 画像
     get_first_image_in_folder,
     get_images_in_folder,
+    get_subfolders,
     get_thumbnail,
     validate_folder_path,
     // クリップボード
@@ -97,6 +98,7 @@ pub fn run() {
             get_thumbnail,
             get_first_image_in_folder,
             get_images_in_folder,
+            get_subfolders,
             validate_folder_path,
             // クリップボード
             copy_image_to_clipboard,
