@@ -2,11 +2,10 @@
 
 import { useState, useEffect, useRef, memo } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Check, ImageIcon, Folder, FolderUp } from "lucide-react";
+import { Check, Folder, FolderUp } from "lucide-react";
 import { Modal, Button } from "./Modal";
 import { Spinner } from "./Spinner";
 import { getImagesInFolder, getSubfolders } from "../../api/tauri";
-import { fetchThumbnail } from "../../utils/thumbnailCache";
 import type { ImageFile } from "../../types";
 
 export interface ImagePickerModalProps {
@@ -24,128 +23,39 @@ const CELL_HEIGHT = 152;
 // サムネイルサイズ
 const THUMBNAIL_SIZE = 120;
 
-/**
- * 逐次サムネイルローダーフック
- * visiblePaths を 1 件ずつ順番にロードし、各完了後にイベントループへ制御を返す。
- * resetKey が変わるとキャッシュをクリアして最初からやり直す。
- */
-function useSequentialLoader(
-  visiblePaths: string[],
-  size: number,
-  resetKey: string
-): Record<string, string | null | undefined> {
-  const [urls, setUrls] = useState<Record<string, string | null>>({});
-  const loadingRef = useRef(false);
-  const processedRef = useRef<Set<string>>(new Set());
-  const visibleRef = useRef<string[]>(visiblePaths);
-
-  // 最新の可視パスを非同期処理から参照できるよう毎レンダーで同期
-  visibleRef.current = visiblePaths;
-
-  // resetKey 変更時（フォルダ変更・モーダル再オープン）に状態リセット
-  // loadingRef もリセットすることで、前セッションのfetch待ち中でも新セッションが即開始できる
-  useEffect(() => {
-    loadingRef.current = false;
-    processedRef.current = new Set();
-    setUrls({});
-  }, [resetKey]);
-
-  useEffect(() => {
-    const processNext = async () => {
-      // 多重起動防止
-      if (loadingRef.current) return;
-
-      // 可視リストから未処理のパスを1件取得
-      const path = visibleRef.current.find(
-        (p) => !processedRef.current.has(p)
-      );
-      if (!path) return;
-
-      loadingRef.current = true;
-      processedRef.current.add(path);
-
-      try {
-        const url = await fetchThumbnail(path, size);
-        setUrls((prev) => ({ ...prev, [path]: url }));
-      } catch {
-        setUrls((prev) => ({ ...prev, [path]: null }));
-      }
-
-      // ブラウザのアイドル時間に次を処理（スクロール中は自動的に停止）
-      // timeout: スクロールし続けても最大 200ms 以内には実行する（thumbnails の表示遅延上限）
-      // NOTE: idle 待機の前に false にすると setUrls() による再レンダーで useEffect が再発火し
-      //       loadingRef.current === false のまま次の processNext() が起動してしまうため、
-      //       必ず待機完了後に false にすること。
-      await new Promise<void>((r) => {
-        if (typeof requestIdleCallback !== "undefined") {
-          requestIdleCallback(() => r(), { timeout: 200 });
-        } else {
-          setTimeout(r, 16);
-        }
-      });
-      loadingRef.current = false;
-      processNext();
-    };
-
-    processNext();
-  }, [visiblePaths, resetKey, size]);
-
-  return urls;
-}
-
-// 各サムネイルセルコンポーネント
-interface ThumbnailCellProps {
+// [実験] フェッチなし・矩形のみの画像セルコンポーネント
+const ThumbnailCell = memo(({ image, isSelected, onSelect }: {
   image: ImageFile;
   isSelected: boolean;
   onSelect: (path: string) => void;
-  url: string | null | undefined;
-}
-
-const ThumbnailCell = memo(({ image, isSelected, onSelect, url }: ThumbnailCellProps) => {
-  // undefined = 未ロード、null = エラー、string = DataURL
-  const loading = url === undefined;
-
-  return (
+}) => (
+  <div
+    onClick={() => onSelect(image.path)}
+    className={`relative cursor-pointer rounded border-2 overflow-hidden flex flex-col items-center p-1 transition-colors ${
+      isSelected
+        ? "border-blue-500 bg-blue-50 dark:bg-blue-900/30"
+        : "border-transparent hover:border-gray-300 dark:hover:border-gray-500"
+    }`}
+  >
+    {/* サムネイル部分（矩形のみ） */}
     <div
-      onClick={() => onSelect(image.path)}
-      className={`relative cursor-pointer rounded border-2 overflow-hidden flex flex-col items-center p-1 transition-colors ${
-        isSelected
-          ? "border-blue-500 bg-blue-50 dark:bg-blue-900/30"
-          : "border-transparent hover:border-gray-300 dark:hover:border-gray-500"
-      }`}
-    >
-      {/* サムネイル部分 */}
-      <div
-        className="w-full bg-gray-100 dark:bg-gray-700 rounded overflow-hidden flex items-center justify-center flex-shrink-0"
-        style={{ height: THUMBNAIL_SIZE }}
-      >
-        {loading ? (
-          <div className="animate-pulse bg-gray-200 dark:bg-gray-600 w-full h-full" />
-        ) : url ? (
-          <img
-            src={url}
-            alt={image.filename}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <ImageIcon size={32} className="text-gray-300 dark:text-gray-600" />
-        )}
+      className="w-full bg-gray-200 dark:bg-gray-600 rounded flex-shrink-0"
+      style={{ height: THUMBNAIL_SIZE }}
+    />
+
+    {/* ファイル名 */}
+    <p className="w-full mt-1 text-xs text-gray-600 dark:text-gray-400 truncate text-center px-1">
+      {image.filename}
+    </p>
+
+    {/* 選択チェックアイコン */}
+    {isSelected && (
+      <div className="absolute top-2 right-2 bg-blue-500 rounded-full p-0.5">
+        <Check size={12} className="text-white" />
       </div>
-
-      {/* ファイル名 */}
-      <p className="w-full mt-1 text-xs text-gray-600 dark:text-gray-400 truncate text-center px-1">
-        {image.filename}
-      </p>
-
-      {/* 選択チェックアイコン */}
-      {isSelected && (
-        <div className="absolute top-2 right-2 bg-blue-500 rounded-full p-0.5">
-          <Check size={12} className="text-white" />
-        </div>
-      )}
-    </div>
-  );
-});
+    )}
+  </div>
+));
 
 /**
  * 親フォルダパスを計算する（ルートフォルダの場合は null を返す）
@@ -255,24 +165,6 @@ export const ImagePickerModal = ({
     overscan: 1,
   });
 
-  // 現在ビューポートに表示中の画像パス一覧（クローズ時は空にしてロードを停止）
-  const visiblePaths = isOpen
-    ? virtualizer.getVirtualItems().flatMap((vRow) => {
-        const startIdx = vRow.index * COLS;
-        return items
-          .slice(startIdx, startIdx + COLS)
-          .filter(
-            (it): it is Extract<GridItem, { kind: "image" }> => it.kind === "image"
-          )
-          .map((it) => it.image.path);
-      })
-    : [];
-
-  // フォルダ変更・モーダル再オープン時にリセットするキー
-  const resetKey = `${isOpen}:${currentFolder}`;
-
-  // 逐次ローダー：1件ずつ順番にサムネイルを取得
-  const thumbnailUrls = useSequentialLoader(visiblePaths, THUMBNAIL_SIZE, resetKey);
 
   // モーダルが開いたら、または currentFolder が変わったら画像一覧とサブフォルダを取得
   useEffect(() => {
@@ -379,7 +271,6 @@ export const ImagePickerModal = ({
                             image={item.image}
                             isSelected={selectedPath === item.image.path}
                             onSelect={setSelectedPath}
-                            url={thumbnailUrls[item.image.path]}
                           />
                         ) : (
                           <FolderCell
