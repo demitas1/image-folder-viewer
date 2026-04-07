@@ -1,0 +1,170 @@
+"""
+MainWindow — IndexPage 相当（カードグリッド表示）
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import (
+    QFileDialog,
+    QHBoxLayout,
+    QLabel,
+    QMainWindow,
+    QMessageBox,
+    QPushButton,
+    QStatusBar,
+    QToolBar,
+    QVBoxLayout,
+    QWidget,
+)
+
+from app.models.app_config import AppConfig, add_recent_profile, save_app_config
+from app.models.profile import (
+    Card,
+    ProfileData,
+    save_profile,
+)
+from app.widgets.card_grid import CardGrid
+
+
+class MainWindow(QMainWindow):
+    """カードグリッドを表示するメインウィンドウ（IndexPage 相当）。"""
+
+    def __init__(
+        self,
+        profile: ProfileData,
+        profile_path: str,
+        config: AppConfig,
+        parent=None,
+    ):
+        super().__init__(parent)
+        self._profile = profile
+        self._profile_path = profile_path
+        self._config = config
+
+        self.setWindowTitle(self._window_title())
+        self._restore_window()
+        self._build_ui()
+        self._restore_viewer_state()
+
+    # ------------------------------------------------------------------
+    # UI 構築
+    # ------------------------------------------------------------------
+
+    def _build_ui(self) -> None:
+        # ツールバー
+        toolbar = QToolBar()
+        self.addToolBar(toolbar)
+
+        lbl = QLabel(f"  {Path(self._profile_path).name}  ")
+        toolbar.addWidget(lbl)
+        toolbar.addSeparator()
+
+        btn_add = QPushButton("＋ カード追加")
+        btn_add.clicked.connect(self._on_add_card)
+        toolbar.addWidget(btn_add)
+
+        btn_save = QPushButton("保存")
+        btn_save.clicked.connect(self._save_profile)
+        toolbar.addWidget(btn_save)
+
+        # カードグリッド
+        self._card_grid = CardGrid(self._profile, parent=self)
+        self._card_grid.card_opened.connect(self._on_card_open)
+        self._card_grid.profile_changed.connect(self._save_profile)
+        self.setCentralWidget(self._card_grid)
+
+        # ステータスバー
+        self.setStatusBar(QStatusBar())
+
+    # ------------------------------------------------------------------
+    # ウィンドウ状態
+    # ------------------------------------------------------------------
+
+    def _restore_window(self) -> None:
+        w = self._profile.app_state.window
+        self.resize(w.width, w.height)
+        if w.x is not None and w.y is not None:
+            self.move(w.x, w.y)
+
+    def _save_window_state(self) -> None:
+        geo = self.geometry()
+        self._profile.app_state.window.x = geo.x()
+        self._profile.app_state.window.y = geo.y()
+        self._profile.app_state.window.width = geo.width()
+        self._profile.app_state.window.height = geo.height()
+
+    def _restore_viewer_state(self) -> None:
+        """前回 ViewerPage で終了していた場合は自動遷移。"""
+        state = self._profile.app_state
+        if state.last_page != "viewer" or not state.last_card_id:
+            return
+        card = next(
+            (c for c in self._profile.cards if c.id == state.last_card_id), None
+        )
+        if card:
+            self._open_viewer(card)
+
+    def _window_title(self) -> str:
+        return f"Image Folder Viewer — {Path(self._profile_path).stem}"
+
+    # ------------------------------------------------------------------
+    # プロファイル操作
+    # ------------------------------------------------------------------
+
+    def _save_profile(self) -> None:
+        try:
+            save_profile(self._profile_path, self._profile)
+        except Exception as e:
+            QMessageBox.warning(self, "保存エラー", f"プロファイルの保存に失敗しました:\n{e}")
+
+    # ------------------------------------------------------------------
+    # カード操作
+    # ------------------------------------------------------------------
+
+    def _on_add_card(self) -> None:
+        from app.windows.card_dialog import CardDialog
+
+        dlg = CardDialog(parent=self)
+        if dlg.exec():
+            card = dlg.result_card()
+            card.sort_order = len(self._profile.cards)
+            self._profile.cards.append(card)
+            self._card_grid.refresh()
+            self._save_profile()
+
+    def _on_card_open(self, card: Card) -> None:
+        self._open_viewer(card)
+
+    def _open_viewer(self, card: Card) -> None:
+        from app.windows.viewer_window import ViewerWindow
+
+        self._profile.app_state.last_page = "viewer"
+        self._profile.app_state.last_card_id = card.id
+
+        self._viewer = ViewerWindow(
+            card=card,
+            profile=self._profile,
+            profile_path=self._profile_path,
+            parent=self,
+        )
+        self._viewer.closed.connect(self._on_viewer_closed)
+        self._viewer.show()
+        self.hide()
+
+    def _on_viewer_closed(self) -> None:
+        self._profile.app_state.last_page = "index"
+        self._save_profile()
+        self.show()
+
+    # ------------------------------------------------------------------
+    # ウィンドウイベント
+    # ------------------------------------------------------------------
+
+    def closeEvent(self, event) -> None:
+        self._save_window_state()
+        self._profile.app_state.last_page = "index"
+        self._save_profile()
+        event.accept()
