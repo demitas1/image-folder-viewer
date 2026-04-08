@@ -41,6 +41,7 @@ class StartupWindow(QDialog):
         self._config = load_app_config()
         self._profile: ProfileData | None = None
         self._profile_path: str | None = None
+        self._launched: bool = False  # 自動オープン成功フラグ
 
         self._build_ui()
         self._refresh_recent_list()
@@ -120,6 +121,7 @@ class StartupWindow(QDialog):
             config=self._config,
         )
         self._main_window.show()
+        self._launched = True
         self.close()
 
     # ------------------------------------------------------------------

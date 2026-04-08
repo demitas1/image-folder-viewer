@@ -155,7 +155,7 @@ class MainWindow(QMainWindow):
         self.hide()
 
     def _on_viewer_closed(self) -> None:
-        self._profile.app_state.last_page = "index"
+        # last_page は ViewerWindow 側で設定済み（戻る→index、直接閉じる→viewer のまま）
         self._save_profile()
         self.show()
 

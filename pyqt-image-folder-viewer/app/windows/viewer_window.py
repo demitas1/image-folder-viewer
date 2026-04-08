@@ -121,6 +121,7 @@ class ViewerWindow(QMainWindow):
         self._current: int = 0  # _indices 上の位置
         self._h_flip = False
         self._shuffle = False
+        self._closing_to_index = False  # 「戻る」操作でのクローズフラグ
 
         self.setWindowTitle(card.title)
         self._build_ui()
@@ -294,6 +295,7 @@ class ViewerWindow(QMainWindow):
     # ------------------------------------------------------------------
 
     def _on_back(self) -> None:
+        self._closing_to_index = True
         self._profile.app_state.last_page = "index"
         try:
             save_profile(self._profile_path, self._profile)
@@ -334,5 +336,8 @@ class ViewerWindow(QMainWindow):
     # ------------------------------------------------------------------
 
     def closeEvent(self, event) -> None:
+        # 「戻る」操作以外（ウィンドウを直接閉じた場合）はビューア状態を保存
+        if not self._closing_to_index:
+            self._save_viewer_state()
         self.closed.emit()
         event.accept()

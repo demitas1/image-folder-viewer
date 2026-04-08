@@ -14,7 +14,9 @@ def main():
     app.setOrganizationName("org.example")
 
     window = StartupWindow()
-    window.show()
+    # 自動オープンに成功した場合は MainWindow がすでに表示されているため表示しない
+    if not window._launched:
+        window.show()
 
     sys.exit(app.exec())
 
