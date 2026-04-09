@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QPushButton,
+    QSizePolicy,
     QStatusBar,
     QToolBar,
     QVBoxLayout,
@@ -27,6 +28,7 @@ from app.models.profile import (
     save_profile,
 )
 from app.widgets.card_grid import CardGrid
+from app.widgets.settings_panel import SettingsPanel
 
 
 class MainWindow(QMainWindow):
@@ -69,6 +71,18 @@ class MainWindow(QMainWindow):
         btn_save = QPushButton("保存")
         btn_save.clicked.connect(self._save_profile)
         toolbar.addWidget(btn_save)
+
+        # スペーサー（設定ボタンを右端に寄せる）
+        spacer = QWidget()
+        spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        toolbar.addWidget(spacer)
+
+        # 歯車（設定）ボタン
+        self._btn_settings = QPushButton("⚙")
+        self._btn_settings.setToolTip("設定")
+        self._btn_settings.setFixedWidth(32)
+        self._btn_settings.clicked.connect(self._on_settings)
+        toolbar.addWidget(self._btn_settings)
 
         # カードグリッド
         self._card_grid = CardGrid(self._profile, parent=self)
@@ -123,6 +137,17 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
     # カード操作
     # ------------------------------------------------------------------
+
+    def _on_settings(self) -> None:
+        panel = SettingsPanel(
+            theme=self._config.theme,
+            aspect_ratio=self._config.thumbnail_aspect_ratio,
+            parent=self,
+        )
+        # 将来のissueで実装: テーマ・アスペクト比の適用と保存
+        # panel.theme_changed.connect(self._on_theme_changed)
+        # panel.aspect_ratio_changed.connect(self._on_aspect_ratio_changed)
+        panel.popup_below(self._btn_settings)
 
     def _on_add_card(self) -> None:
         from app.windows.card_dialog import CardDialog
