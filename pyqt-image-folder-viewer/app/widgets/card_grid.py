@@ -14,7 +14,7 @@ from PyQt6.QtCore import (
     Qt,
     pyqtSignal,
 )
-from PyQt6.QtGui import QColor, QIcon, QPainter, QPixmap
+from PyQt6.QtGui import QColor, QPainter, QPixmap
 from PyQt6.QtWidgets import (
     QListView,
     QMenu,
@@ -30,10 +30,26 @@ from app.models.profile import Card, ProfileData
 from app.utils import theme as theme_mod
 from app.widgets.thumbnail_loader import ThumbnailLoader
 
-CARD_WIDTH = 200
-CARD_HEIGHT = 160
-THUMBNAIL_SIZE = 120
-ASPECT_RATIO = (16, 9)
+# サムネイル高さ固定・最大幅（16:9）でキャッシュ生成
+THUMB_H = 180
+THUMBNAIL_SIZE = 320   # 常に最大サイズ（16:9 の thumb_w）でキャッシュ
+CARD_HEIGHT = 236      # 4 + THUMB_H + 8 + タイトル40 + 4
+
+ASPECT_RATIO_MAP: dict[str, tuple[int, int]] = {
+    "16:9": (16, 9),
+    "4:3":  (4, 3),
+    "1:1":  (1, 1),
+}
+DEFAULT_ASPECT_RATIO = "16:9"
+
+
+def _thumb_w(ratio: str) -> int:
+    r = ASPECT_RATIO_MAP.get(ratio, ASPECT_RATIO_MAP[DEFAULT_ASPECT_RATIO])
+    return int(THUMB_H * r[0] / r[1])
+
+
+def _card_width(ratio: str) -> int:
+    return _thumb_w(ratio) + 8
 
 
 class CardModel(QAbstractListModel):
@@ -72,14 +88,18 @@ class CardModel(QAbstractListModel):
 class CardDelegate(QStyledItemDelegate):
     """カードの描画デリゲート。"""
 
-    def __init__(self, loader: ThumbnailLoader, view: QListView, parent=None):
+    def __init__(self, loader: ThumbnailLoader, view: QListView, aspect_ratio: str, parent=None):
         super().__init__(parent)
         self._loader = loader
         self._view = view
         self._pixmaps: dict[str, QPixmap | None] = {}
+        self._thumb_w = _thumb_w(aspect_ratio)
+
+    def set_aspect_ratio(self, ratio: str) -> None:
+        self._thumb_w = _thumb_w(ratio)
 
     def sizeHint(self, option, index) -> QSize:
-        return QSize(CARD_WIDTH, CARD_HEIGHT)
+        return QSize(self._thumb_w + 8, CARD_HEIGHT)
 
     def paint(self, painter: QPainter, option: QStyleOptionViewItem, index: QModelIndex) -> None:
         card: Card = index.data(Qt.ItemDataRole.UserRole)
@@ -97,9 +117,7 @@ class CardDelegate(QStyledItemDelegate):
         painter.fillRect(rect, bg_color)
 
         # サムネイル領域
-        thumb_w = CARD_WIDTH - 8
-        thumb_h = int(thumb_w * ASPECT_RATIO[1] / ASPECT_RATIO[0])
-        thumb_rect = rect.adjusted(4, 4, -4, -(CARD_HEIGHT - thumb_h - 4))
+        thumb_rect = rect.adjusted(4, 4, -4, -(CARD_HEIGHT - THUMB_H - 4))
 
         if card.thumbnail and card.thumbnail not in self._pixmaps:
             # 初回リクエスト
@@ -116,7 +134,11 @@ class CardDelegate(QStyledItemDelegate):
             # センタークリップ
             x_off = (scaled.width() - thumb_rect.width()) // 2
             y_off = (scaled.height() - thumb_rect.height()) // 2
-            painter.drawPixmap(thumb_rect, scaled, scaled.rect().adjusted(x_off, y_off, -x_off, -y_off))
+            painter.drawPixmap(
+                thumb_rect,
+                scaled,
+                scaled.rect().adjusted(x_off, y_off, -x_off, -y_off),
+            )
         else:
             # サムネイルなし
             painter.fillRect(thumb_rect, QColor(colors["thumb_bg"]))
@@ -124,7 +146,7 @@ class CardDelegate(QStyledItemDelegate):
             painter.drawText(thumb_rect, Qt.AlignmentFlag.AlignCenter, "📁")
 
         # タイトル
-        title_rect = rect.adjusted(4, thumb_h + 8, -4, -4)
+        title_rect = rect.adjusted(4, THUMB_H + 8, -4, -4)
         painter.setPen(QColor(colors["title_fg"]))
         painter.drawText(
             title_rect,
@@ -143,9 +165,10 @@ class CardGrid(QWidget):
     card_opened = pyqtSignal(object)   # Card
     profile_changed = pyqtSignal()
 
-    def __init__(self, profile: ProfileData, parent=None):
+    def __init__(self, profile: ProfileData, aspect_ratio: str = DEFAULT_ASPECT_RATIO, parent=None):
         super().__init__(parent)
         self._profile = profile
+        self._aspect_ratio = aspect_ratio
         self._loader = ThumbnailLoader(size=THUMBNAIL_SIZE)
 
         layout = QVBoxLayout(self)
@@ -154,7 +177,9 @@ class CardGrid(QWidget):
         self._model = CardModel(profile)
 
         self._view = QListView()
-        self._delegate = CardDelegate(self._loader, view=self._view, parent=self)
+        self._delegate = CardDelegate(
+            self._loader, view=self._view, aspect_ratio=aspect_ratio, parent=self
+        )
         self._view.setModel(self._model)
         self._view.setItemDelegate(self._delegate)
         self._view.setViewMode(QListView.ViewMode.IconMode)
@@ -162,12 +187,19 @@ class CardGrid(QWidget):
         self._view.setSpacing(8)
         self._view.setDragDropMode(QListView.DragDropMode.InternalMove)
         self._view.setDefaultDropAction(Qt.DropAction.MoveAction)
-        self._view.setGridSize(QSize(CARD_WIDTH + 8, CARD_HEIGHT + 8))
+        self._view.setGridSize(QSize(_card_width(aspect_ratio) + 8, CARD_HEIGHT + 8))
         self._view.doubleClicked.connect(self._on_double_click)
         self._view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self._view.customContextMenuRequested.connect(self._on_context_menu)
 
         layout.addWidget(self._view)
+
+    def set_aspect_ratio(self, ratio: str) -> None:
+        """アスペクト比を変更してグリッドを再描画する。キャッシュ無効化は不要。"""
+        self._aspect_ratio = ratio
+        self._delegate.set_aspect_ratio(ratio)
+        self._view.setGridSize(QSize(_card_width(ratio) + 8, CARD_HEIGHT + 8))
+        self._view.viewport().update()
 
     def refresh(self) -> None:
         self._model.refresh()

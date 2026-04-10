@@ -88,7 +88,11 @@ class MainWindow(QMainWindow):
         toolbar.addWidget(self._btn_settings)
 
         # カードグリッド
-        self._card_grid = CardGrid(self._profile, parent=self)
+        self._card_grid = CardGrid(
+            self._profile,
+            aspect_ratio=self._config.thumbnail_aspect_ratio,
+            parent=self,
+        )
         self._card_grid.card_opened.connect(self._on_card_open)
         self._card_grid.profile_changed.connect(self._save_profile)
         self.setCentralWidget(self._card_grid)
@@ -148,8 +152,16 @@ class MainWindow(QMainWindow):
             parent=self,
         )
         panel.theme_changed.connect(self._on_theme_changed)
-        # aspect_ratio_changed は別issueで実装
+        panel.aspect_ratio_changed.connect(self._on_aspect_ratio_changed)
         panel.popup_below(self._btn_settings)
+
+    def _on_aspect_ratio_changed(self, ratio: str) -> None:
+        self._config.thumbnail_aspect_ratio = ratio
+        self._card_grid.set_aspect_ratio(ratio)
+        try:
+            save_app_config(self._config)
+        except Exception:
+            pass
 
     def _on_theme_changed(self, theme: str) -> None:
         self._config.theme = theme
