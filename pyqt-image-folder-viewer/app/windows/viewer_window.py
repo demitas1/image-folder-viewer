@@ -295,6 +295,7 @@ class ViewerWindow(QMainWindow):
     # ------------------------------------------------------------------
 
     def _on_back(self) -> None:
+        """IndexPage に戻る（「戻る」ボタン・Escape）。"""
         self._closing_to_index = True
         self._profile.app_state.last_page = "index"
         try:
@@ -303,14 +304,21 @@ class ViewerWindow(QMainWindow):
             pass
         self.close()
 
+    def _on_quit(self) -> None:
+        """アプリケーションを終了する（Q キー・X ボタン）。"""
+        self._save_viewer_state()
+        QApplication.quit()
+
     # ------------------------------------------------------------------
     # キーボードショートカット
     # ------------------------------------------------------------------
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
         key = event.key()
-        if key in (Qt.Key.Key_Escape, Qt.Key.Key_Q):
+        if key == Qt.Key.Key_Escape:
             self._on_back()
+        elif key == Qt.Key.Key_Q:
+            self._on_quit()
         elif key == Qt.Key.Key_Left:
             self._go_prev()
         elif key == Qt.Key.Key_Right:
@@ -336,8 +344,11 @@ class ViewerWindow(QMainWindow):
     # ------------------------------------------------------------------
 
     def closeEvent(self, event) -> None:
-        # 「戻る」操作以外（ウィンドウを直接閉じた場合）はビューア状態を保存
-        if not self._closing_to_index:
+        if self._closing_to_index:
+            # 「戻る」操作: MainWindow に制御を返す
+            self.closed.emit()
+        else:
+            # X ボタンによる直接クローズ: アプリ終了
             self._save_viewer_state()
-        self.closed.emit()
+            QApplication.quit()
         event.accept()

@@ -52,7 +52,6 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(self._window_title())
         self._restore_window()
         self._build_ui()
-        self._restore_viewer_state()
 
     # ------------------------------------------------------------------
     # UI 構築

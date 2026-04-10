@@ -121,6 +121,7 @@ class StartupWindow(QDialog):
             config=self._config,
         )
         self._main_window.show()
+        self._main_window._restore_viewer_state()  # show() の後に呼ぶことで hide() が有効になる
         self._launched = True
         self.close()
 
