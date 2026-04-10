@@ -42,13 +42,13 @@ class _SegmentedButtons(QWidget):
             btn.setFixedHeight(28)
 
             # 角丸：左端・右端・中間で異なるスタイル
+            radius = "4px"
             if len(options) == 1:
-                radius = "4px"
                 btn.setStyleSheet(self._btn_style(radius, radius, radius, radius, "0"))
             elif i == 0:
-                btn.setStyleSheet(self._btn_style("4px", "0", "0", "4px", "0"))
+                btn.setStyleSheet(self._btn_style(radius, "0", "0", radius, "0"))
             elif i == len(options) - 1:
-                btn.setStyleSheet(self._btn_style("0", "4px", "4px", "0", "-1px"))
+                btn.setStyleSheet(self._btn_style("0", radius, radius, "0", "-1px"))
             else:
                 btn.setStyleSheet(self._btn_style("0", "0", "0", "0", "-1px"))
 

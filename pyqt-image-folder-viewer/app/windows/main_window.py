@@ -21,12 +21,15 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from PyQt6.QtWidgets import QApplication
+
 from app.models.app_config import AppConfig, add_recent_profile, save_app_config
 from app.models.profile import (
     Card,
     ProfileData,
     save_profile,
 )
+from app.utils import theme as theme_mod
 from app.widgets.card_grid import CardGrid
 from app.widgets.settings_panel import SettingsPanel
 
@@ -144,10 +147,20 @@ class MainWindow(QMainWindow):
             aspect_ratio=self._config.thumbnail_aspect_ratio,
             parent=self,
         )
-        # 将来のissueで実装: テーマ・アスペクト比の適用と保存
-        # panel.theme_changed.connect(self._on_theme_changed)
-        # panel.aspect_ratio_changed.connect(self._on_aspect_ratio_changed)
+        panel.theme_changed.connect(self._on_theme_changed)
+        # aspect_ratio_changed は別issueで実装
         panel.popup_below(self._btn_settings)
+
+    def _on_theme_changed(self, theme: str) -> None:
+        self._config.theme = theme
+        app = QApplication.instance()
+        if app:
+            theme_mod.apply_theme(app, theme)
+        self._card_grid.refresh()
+        try:
+            save_app_config(self._config)
+        except Exception:
+            pass
 
     def _on_add_card(self) -> None:
         from app.windows.card_dialog import CardDialog

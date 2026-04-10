@@ -27,6 +27,7 @@ from PyQt6.QtWidgets import (
 )
 
 from app.models.profile import Card, ProfileData
+from app.utils import theme as theme_mod
 from app.widgets.thumbnail_loader import ThumbnailLoader
 
 CARD_WIDTH = 200
@@ -88,8 +89,11 @@ class CardDelegate(QStyledItemDelegate):
         rect = option.rect
         is_selected = bool(option.state & QStyle.StateFlag.State_Selected)
 
+        # テーマ色を取得
+        colors = theme_mod.card_colors()
+
         # 背景
-        bg_color = QColor("#3b82f6") if is_selected else QColor("#374151")
+        bg_color = QColor(colors["card_bg_sel"]) if is_selected else QColor(colors["card_bg"])
         painter.fillRect(rect, bg_color)
 
         # サムネイル領域
@@ -115,13 +119,13 @@ class CardDelegate(QStyledItemDelegate):
             painter.drawPixmap(thumb_rect, scaled, scaled.rect().adjusted(x_off, y_off, -x_off, -y_off))
         else:
             # サムネイルなし
-            painter.fillRect(thumb_rect, QColor("#1f2937"))
-            painter.setPen(QColor("#6b7280"))
+            painter.fillRect(thumb_rect, QColor(colors["thumb_bg"]))
+            painter.setPen(QColor(colors["icon_fg"]))
             painter.drawText(thumb_rect, Qt.AlignmentFlag.AlignCenter, "📁")
 
         # タイトル
         title_rect = rect.adjusted(4, thumb_h + 8, -4, -4)
-        painter.setPen(QColor("#f3f4f6"))
+        painter.setPen(QColor(colors["title_fg"]))
         painter.drawText(
             title_rect,
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop,
