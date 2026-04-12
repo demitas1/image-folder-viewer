@@ -144,6 +144,7 @@ class ViewerWindow(QMainWindow):
         self.addToolBar(toolbar)
 
         btn_back = QPushButton("← 戻る")
+        btn_back.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         btn_back.clicked.connect(self._on_back)
         toolbar.addWidget(btn_back)
 
@@ -156,12 +157,14 @@ class ViewerWindow(QMainWindow):
 
         self._btn_hflip = QPushButton("H")
         self._btn_hflip.setCheckable(True)
+        self._btn_hflip.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._btn_hflip.setToolTip("水平反転 (H)")
         self._btn_hflip.clicked.connect(self._toggle_hflip)
         toolbar.addWidget(self._btn_hflip)
 
         self._btn_shuffle = QPushButton("R")
         self._btn_shuffle.setCheckable(True)
+        self._btn_shuffle.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._btn_shuffle.setToolTip("シャッフル (R)")
         self._btn_shuffle.clicked.connect(self._toggle_shuffle)
         toolbar.addWidget(self._btn_shuffle)
@@ -405,6 +408,11 @@ class ViewerWindow(QMainWindow):
     # ------------------------------------------------------------------
     # ウィンドウイベント
     # ------------------------------------------------------------------
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        self.activateWindow()
+        self._image_view.setFocus()
 
     def closeEvent(self, event) -> None:
         self._save_window_state()
