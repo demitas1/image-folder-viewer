@@ -121,6 +121,9 @@ class AppState:
     h_flip_enabled: bool = False
     shuffle_enabled: bool = False
     window: WindowState = field(default_factory=WindowState)
+    viewer_window: WindowState = field(
+        default_factory=lambda: WindowState(width=1280, height=900)
+    )
 
     @classmethod
     def from_dict(cls, d: dict) -> AppState:
@@ -132,6 +135,9 @@ class AppState:
             h_flip_enabled=d.get("hFlipEnabled", False),
             shuffle_enabled=d.get("shuffleEnabled", False),
             window=WindowState.from_dict(d.get("window", {})),
+            viewer_window=WindowState.from_dict(
+                d.get("viewerWindow", {"width": 1280, "height": 900})
+            ),
         )
 
     def to_dict(self) -> dict:
@@ -142,6 +148,7 @@ class AppState:
             "hFlipEnabled": self.h_flip_enabled,
             "shuffleEnabled": self.shuffle_enabled,
             "window": self.window.to_dict(),
+            "viewerWindow": self.viewer_window.to_dict(),
         }
         if self.last_image_filename is not None:
             d["lastImageFilename"] = self.last_image_filename

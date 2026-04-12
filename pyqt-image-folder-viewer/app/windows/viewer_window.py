@@ -125,6 +125,7 @@ class ViewerWindow(QMainWindow):
 
         self.setWindowTitle(card.title)
         self._build_ui()
+        self._restore_window()
         self._load_images()
 
     # ------------------------------------------------------------------
@@ -166,6 +167,23 @@ class ViewerWindow(QMainWindow):
         # ステータスバー（ナビゲーション情報）
         self._status = QStatusBar()
         self.setStatusBar(self._status)
+
+    # ------------------------------------------------------------------
+    # ウィンドウ状態
+    # ------------------------------------------------------------------
+
+    def _restore_window(self) -> None:
+        w = self._profile.app_state.viewer_window
+        self.resize(w.width, w.height)
+        if w.x is not None and w.y is not None:
+            self.move(w.x, w.y)
+
+    def _save_window_state(self) -> None:
+        geo = self.geometry()
+        self._profile.app_state.viewer_window.x = geo.x()
+        self._profile.app_state.viewer_window.y = geo.y()
+        self._profile.app_state.viewer_window.width = geo.width()
+        self._profile.app_state.viewer_window.height = geo.height()
 
     # ------------------------------------------------------------------
     # 画像ロード
@@ -306,6 +324,7 @@ class ViewerWindow(QMainWindow):
 
     def _on_quit(self) -> None:
         """アプリケーションを終了する（Q キー・X ボタン）。"""
+        self._save_window_state()
         self._save_viewer_state()
         QApplication.quit()
 
@@ -344,6 +363,7 @@ class ViewerWindow(QMainWindow):
     # ------------------------------------------------------------------
 
     def closeEvent(self, event) -> None:
+        self._save_window_state()
         if self._closing_to_index:
             # 「戻る」操作: MainWindow に制御を返す
             self.closed.emit()
