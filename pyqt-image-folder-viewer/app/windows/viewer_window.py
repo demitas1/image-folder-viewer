@@ -8,7 +8,7 @@ import random
 from pathlib import Path
 
 from PyQt6.QtCore import QTimer, Qt, pyqtSignal
-from PyQt6.QtGui import QKeyEvent, QPixmap, QTransform
+from PyQt6.QtGui import QKeyEvent, QPainter, QPixmap, QTransform
 from PyQt6.QtWidgets import (
     QApplication,
     QGraphicsPixmapItem,
@@ -44,6 +44,8 @@ class ImageView(QGraphicsView):
         self._h_flip = False
         self._zoom = 1.0
         self._ignore_resize = False  # プログラムリサイズ中はfit_zoomをスキップ
+        self.setRenderHint(QPainter.RenderHint.Antialiasing)
+        self.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.setFrameShape(QGraphicsView.Shape.NoFrame)
