@@ -7,7 +7,7 @@ from __future__ import annotations
 import random
 from pathlib import Path
 
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import QTimer, Qt, pyqtSignal
 from PyQt6.QtGui import QKeyEvent, QPixmap, QTransform
 from PyQt6.QtWidgets import (
     QApplication,
@@ -33,6 +33,7 @@ class ImageView(QGraphicsView):
     """画像表示ウィジェット（ズーム・H-Flip 対応）。"""
 
     clicked = pyqtSignal()
+    zoom_changed = pyqtSignal(float)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -42,6 +43,7 @@ class ImageView(QGraphicsView):
         self._scene.addItem(self._item)
         self._h_flip = False
         self._zoom = 1.0
+        self._ignore_resize = False  # プログラムリサイズ中はfit_zoomをスキップ
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.setFrameShape(QGraphicsView.Shape.NoFrame)
@@ -70,9 +72,6 @@ class ImageView(QGraphicsView):
     def zoom_out(self) -> None:
         self.set_zoom(max(self._zoom * 0.8, 0.05))
 
-    def reset_zoom(self) -> None:
-        self._fit_zoom()
-
     def _fit_zoom(self) -> None:
         pixmap = self._item.pixmap()
         if pixmap.isNull():
@@ -85,6 +84,7 @@ class ImageView(QGraphicsView):
             return
         self._zoom = min(vw / pw, vh / ph, 4.0)
         self._apply_transform()
+        self.zoom_changed.emit(self._zoom)
 
     def _apply_transform(self) -> None:
         sx = -self._zoom if self._h_flip else self._zoom
@@ -92,7 +92,8 @@ class ImageView(QGraphicsView):
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
-        self._fit_zoom()
+        if not self._ignore_resize:
+            self._fit_zoom()
 
     def mousePressEvent(self, event) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
@@ -162,6 +163,9 @@ class ViewerWindow(QMainWindow):
         # 画像表示エリア
         self._image_view = ImageView()
         self._image_view.clicked.connect(self._go_next)
+        self._image_view.zoom_changed.connect(
+            lambda z: self._lbl_zoom.setText(f"{int(z * 100)}%")
+        )
         self.setCentralWidget(self._image_view)
 
         # ステータスバー（ナビゲーション情報）
@@ -237,9 +241,6 @@ class ViewerWindow(QMainWindow):
         path = self._images[real_index]
         self._image_view.set_image(str(path))
         self._lbl_title.setText(f"  {self._card.title} — {path.name}  ")
-        self._lbl_zoom.setText(
-            f"{int(self._image_view._zoom * 100)}%"
-        )
         total = len(self._images)
         self._status.showMessage(
             f"{self._current + 1} / {total}"
@@ -247,6 +248,48 @@ class ViewerWindow(QMainWindow):
             + "    ←→: ナビゲーション | H: 反転 | R: シャッフル | +/-: ズーム | ESC: 戻る"
         )
         self._save_viewer_state()
+
+    # ------------------------------------------------------------------
+    # ズーム（ウィンドウ連動）
+    # ------------------------------------------------------------------
+
+    def _zoom_and_resize(self, zoom_factor: float) -> None:
+        """ズーム率を変更し、ウィンドウサイズを連動リサイズする。"""
+        pixmap = self._image_view._item.pixmap()
+        if pixmap.isNull():
+            return
+        pw, ph = pixmap.width(), pixmap.height()
+
+        new_zoom = min(self._image_view._zoom * zoom_factor, 4.0)
+
+        # chrome 高 = ウィンドウ高 − ビューポート高
+        chrome_h = self.height() - self._image_view.viewport().height()
+
+        new_w = int(pw * new_zoom)
+        new_h = int(ph * new_zoom) + chrome_h
+
+        # 最小サイズクランプ
+        new_w = max(new_w, 200)
+        new_h = max(new_h, 200)
+
+        # 最大サイズクランプ（スクリーンサイズ）
+        screen = QApplication.primaryScreen()
+        if screen:
+            avail = screen.availableGeometry()
+            new_w = min(new_w, avail.width())
+            new_h = min(new_h, avail.height())
+
+        # クランプ後のズーム率を再計算
+        effective_zoom = min(new_w / pw, (new_h - chrome_h) / ph)
+        effective_zoom = max(effective_zoom, 0.01)
+
+        # プログラムリサイズ中は resizeEvent の fit_zoom をスキップ
+        self._image_view._ignore_resize = True
+        self.resize(new_w, new_h)
+        self._image_view.set_zoom(effective_zoom)
+        QTimer.singleShot(0, lambda: setattr(self._image_view, '_ignore_resize', False))
+
+        self._lbl_zoom.setText(f"{int(effective_zoom * 100)}%")
 
     # ------------------------------------------------------------------
     # ナビゲーション
@@ -347,14 +390,9 @@ class ViewerWindow(QMainWindow):
         elif key in (Qt.Key.Key_R,):
             self._toggle_shuffle()
         elif key in (Qt.Key.Key_Plus, Qt.Key.Key_Equal):
-            self._image_view.zoom_in()
-            self._lbl_zoom.setText(f"{int(self._image_view._zoom * 100)}%")
+            self._zoom_and_resize(1.2)
         elif key == Qt.Key.Key_Minus:
-            self._image_view.zoom_out()
-            self._lbl_zoom.setText(f"{int(self._image_view._zoom * 100)}%")
-        elif key == Qt.Key.Key_0:
-            self._image_view.reset_zoom()
-            self._lbl_zoom.setText(f"{int(self._image_view._zoom * 100)}%")
+            self._zoom_and_resize(0.8)
         else:
             super().keyPressEvent(event)
 
