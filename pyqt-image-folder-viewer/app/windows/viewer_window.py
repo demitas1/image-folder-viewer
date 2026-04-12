@@ -95,6 +95,10 @@ class ImageView(QGraphicsView):
         if not self._ignore_resize:
             self._fit_zoom()
 
+    def keyPressEvent(self, event) -> None:
+        # キーイベントは ViewerWindow で一元処理するため親に委譲
+        event.ignore()
+
     def mousePressEvent(self, event) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
             self.clicked.emit()
