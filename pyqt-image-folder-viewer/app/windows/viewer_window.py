@@ -7,8 +7,8 @@ from __future__ import annotations
 import random
 from pathlib import Path
 
-from PyQt6.QtCore import QTimer, Qt, pyqtSignal
-from PyQt6.QtGui import QKeyEvent, QPainter, QPixmap, QTransform
+from PyQt6.QtCore import QPoint, QTimer, Qt, pyqtSignal
+from PyQt6.QtGui import QImage, QKeyEvent, QPainter, QPixmap, QTransform
 from PyQt6.QtWidgets import (
     QApplication,
     QGraphicsPixmapItem,
@@ -17,6 +17,7 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QMainWindow,
+    QMenu,
     QMessageBox,
     QPushButton,
     QSizePolicy,
@@ -33,6 +34,7 @@ class ImageView(QGraphicsView):
     """画像表示ウィジェット（ズーム・H-Flip 対応）。"""
 
     clicked = pyqtSignal()
+    right_clicked = pyqtSignal(QPoint)  # グローバル座標
     zoom_changed = pyqtSignal(float)
 
     def __init__(self, parent=None):
@@ -104,6 +106,8 @@ class ImageView(QGraphicsView):
     def mousePressEvent(self, event) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
             self.clicked.emit()
+        elif event.button() == Qt.MouseButton.RightButton:
+            self.right_clicked.emit(event.globalPosition().toPoint())
         super().mousePressEvent(event)
 
 
@@ -172,6 +176,7 @@ class ViewerWindow(QMainWindow):
         # 画像表示エリア
         self._image_view = ImageView()
         self._image_view.clicked.connect(self._go_next)
+        self._image_view.right_clicked.connect(self._show_context_menu)
         self._image_view.zoom_changed.connect(
             lambda z: self._lbl_zoom.setText(f"{int(z * 100)}%")
         )
@@ -254,7 +259,7 @@ class ViewerWindow(QMainWindow):
         self._status.showMessage(
             f"{self._current + 1} / {total}"
             + ("  (シャッフル)" if self._shuffle else "")
-            + "    ←→: ナビゲーション | H: 反転 | R: シャッフル | +/-: ズーム | ESC: 戻る"
+            + "    ←→: ナビゲーション | H: 反転 | R: シャッフル | +/-: ズーム | Space: メニュー | ESC: 戻る"
         )
         self._save_viewer_state()
 
@@ -361,6 +366,74 @@ class ViewerWindow(QMainWindow):
             pass
 
     # ------------------------------------------------------------------
+    # コンテキストメニュー
+    # ------------------------------------------------------------------
+
+    def _show_context_menu(self, global_pos: QPoint) -> None:
+        """コンテキストメニューを表示する（右クリック・Space）。"""
+        menu = QMenu(self)
+
+        # 現在の画像パスを取得
+        if self._images:
+            real_index = self._indices[self._current]
+            image_path = str(self._images[real_index])
+
+            act_copy_image = menu.addAction("コピー")
+            act_copy_path = menu.addAction("パスをコピー")
+            menu.addSeparator()
+        else:
+            act_copy_image = None
+            act_copy_path = None
+            image_path = None
+
+        hflip_label = f"水平反転: {'OFF' if self._h_flip else 'ON'}"
+        act_hflip = menu.addAction(f"{hflip_label}\tH")
+
+        shuffle_label = f"シャッフル: {'OFF' if self._shuffle else 'ON'}"
+        act_shuffle = menu.addAction(f"{shuffle_label}\tR")
+
+        menu.addSeparator()
+        act_zoom_in = menu.addAction("ズームイン\t+")
+        act_zoom_out = menu.addAction("ズームアウト\t-")
+
+        menu.addSeparator()
+        act_back = menu.addAction("インデックスに戻る\tESC")
+        act_quit = menu.addAction("終了\tQ")
+
+        action = menu.exec(global_pos)
+        if action is None:
+            return
+
+        if action == act_copy_image and image_path:
+            self._copy_image_to_clipboard(image_path)
+        elif action == act_copy_path and image_path:
+            self._copy_path_to_clipboard(image_path)
+        elif action == act_hflip:
+            self._toggle_hflip()
+        elif action == act_shuffle:
+            self._toggle_shuffle()
+        elif action == act_zoom_in:
+            self._zoom_and_resize(1.2)
+        elif action == act_zoom_out:
+            self._zoom_and_resize(0.8)
+        elif action == act_back:
+            self._on_back()
+        elif action == act_quit:
+            self._on_quit()
+
+    def _copy_image_to_clipboard(self, path: str) -> None:
+        """画像をクリップボードにコピーする。"""
+        image = QImage(path)
+        if image.isNull():
+            QMessageBox.warning(self, "エラー", "画像を読み込めませんでした")
+            return
+        QApplication.clipboard().setImage(image)
+
+    def _copy_path_to_clipboard(self, path: str) -> None:
+        """パスをクリップボードにコピーする。"""
+        QApplication.clipboard().setText(path)
+
+    # ------------------------------------------------------------------
     # 戻る
     # ------------------------------------------------------------------
 
@@ -402,6 +475,10 @@ class ViewerWindow(QMainWindow):
             self._zoom_and_resize(1.2)
         elif key == Qt.Key.Key_Minus:
             self._zoom_and_resize(0.8)
+        elif key == Qt.Key.Key_Space:
+            # ウィンドウ中央にコンテキストメニューを表示
+            center = self.rect().center()
+            self._show_context_menu(self.mapToGlobal(center))
         else:
             super().keyPressEvent(event)
 
