@@ -4,6 +4,7 @@ ViewerWindow — ViewerPage 相当（画像ビューア）
 
 from __future__ import annotations
 
+import os
 import random
 from pathlib import Path
 
@@ -28,6 +29,7 @@ from PyQt6.QtWidgets import (
 
 from app.models.profile import Card, CardViewerState, ProfileData, save_profile
 from app.utils.image_utils import collect_images
+from app.widgets.toast import ToastManager, ToastType
 
 
 class ImageView(QGraphicsView):
@@ -136,6 +138,10 @@ class ViewerWindow(QMainWindow):
 
         self.setWindowTitle(card.title)
         self._build_ui()
+        self._toast = ToastManager(self)
+        if os.environ.get("APP_DEBUG"):
+            from app.widgets.toast_test_panel import ToastTestPanel
+            self._toast_test = ToastTestPanel(self._toast, self)
         self._restore_window()
         self._load_images()
 
@@ -425,13 +431,15 @@ class ViewerWindow(QMainWindow):
         """画像をクリップボードにコピーする。"""
         image = QImage(path)
         if image.isNull():
-            QMessageBox.warning(self, "エラー", "画像を読み込めませんでした")
+            self._toast.add_toast("画像の読み込みに失敗しました", ToastType.ERROR)
             return
         QApplication.clipboard().setImage(image)
+        self._toast.add_toast("画像をコピーしました", ToastType.SUCCESS)
 
     def _copy_path_to_clipboard(self, path: str) -> None:
         """パスをクリップボードにコピーする。"""
         QApplication.clipboard().setText(path)
+        self._toast.add_toast("パスをコピーしました", ToastType.SUCCESS)
 
     # ------------------------------------------------------------------
     # 戻る

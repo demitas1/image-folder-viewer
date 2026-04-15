@@ -4,6 +4,7 @@ MainWindow — IndexPage 相当（カードグリッド表示）
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from PyQt6.QtCore import Qt
@@ -12,7 +13,6 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QMainWindow,
-    QMessageBox,
     QPushButton,
     QSizePolicy,
     QStatusBar,
@@ -32,6 +32,7 @@ from app.models.profile import (
 from app.utils import theme as theme_mod
 from app.widgets.card_grid import CardGrid
 from app.widgets.settings_panel import SettingsPanel
+from app.widgets.toast import ToastManager, ToastType
 
 
 class MainWindow(QMainWindow):
@@ -52,6 +53,10 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(self._window_title())
         self._restore_window()
         self._build_ui()
+        self._toast = ToastManager(self)
+        if os.environ.get("APP_DEBUG"):
+            from app.widgets.toast_test_panel import ToastTestPanel
+            self._toast_test = ToastTestPanel(self._toast, self)
 
     # ------------------------------------------------------------------
     # UI 構築
@@ -138,7 +143,7 @@ class MainWindow(QMainWindow):
         try:
             save_profile(self._profile_path, self._profile)
         except Exception as e:
-            QMessageBox.warning(self, "保存エラー", f"プロファイルの保存に失敗しました:\n{e}")
+            self._toast.add_toast(f"保存に失敗しました: {e}", ToastType.ERROR)
 
     # ------------------------------------------------------------------
     # カード操作
